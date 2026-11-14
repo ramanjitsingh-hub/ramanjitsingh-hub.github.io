@@ -33,9 +33,9 @@ nav .links a:hover{color:var(--charcoal)}
 nav .rev{grid-column:11/13;text-align:right}
 
 /* about */
-.about{min-height:100vh;display:flex;align-items:center;padding:120px 0 70px}
+.about{min-height:92vh;display:flex;align-items:flex-end;padding:110px 0 0;overflow:hidden}
 .about .grid{align-items:end;width:100%}
-.about .left{grid-column:1/9}
+.about .left{grid-column:1/8;padding-bottom:64px}
 .about h1{font-weight:300;font-size:clamp(38px,4.6vw,68px);line-height:1.02;letter-spacing:-.035em}
 .about h1 span{color:var(--graphite)}
 .about .intro{margin-top:34px;font-size:clamp(18px,1.5vw,21px);font-weight:300;line-height:1.55;max-width:600px}
@@ -43,9 +43,13 @@ nav .rev{grid-column:11/13;text-align:right}
 .cta{display:flex;gap:26px;flex-wrap:wrap;margin-top:36px;font-size:15px}
 .cta a{border-bottom:1px solid var(--charcoal);padding-bottom:2px}
 .cta a.soft{border-color:var(--rule);color:var(--graphite)}
-.glance{grid-column:10/13;border-top:1px solid var(--charcoal)}
-.glance div{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--rule);font-size:14.5px}
-.glance dt{font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:3px}
+.portrait{grid-column:8/13;align-self:end;display:flex;justify-content:center;position:relative}
+.portrait::before{content:"";position:absolute;left:8%;right:8%;bottom:0;top:22%;background:var(--stone);border-radius:2px;z-index:0}
+.portrait img{position:relative;z-index:1;display:block;width:auto;max-width:100%;max-height:78vh;height:auto}
+.strip{border-top:1px solid var(--charcoal)}
+.glance{display:grid;grid-template-columns:repeat(5,1fr);gap:24px}
+.glance div{padding:16px 0 18px;font-size:14.5px}
+.glance dt{font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:6px}
 .glance dd b{font-weight:500}
 
 /* generic sections */
@@ -144,8 +148,9 @@ footer .c1{grid-column:1/7}footer .c3{grid-column:7/13;text-align:right}
 @media (max-width:1000px){
   .wrap{padding:0 16px}
   nav .links{display:none}nav .who{grid-column:1/8}nav .rev{grid-column:8/13}
-  .about .left,.glance,.label,.lead,.doing,.work,.rec,.inv,.prop,.contact h2{grid-column:1/-1}
-  .glance{margin-top:44px}
+  .about .left,.portrait,.label,.lead,.doing,.work,.rec,.inv,.prop,.contact h2{grid-column:1/-1}
+  .portrait{margin-top:24px}.portrait img{max-height:62vh}.about .left{padding-bottom:0}
+  .glance{grid-template-columns:1fr 1fr;gap:0 16px}
   .lead{margin-top:14px}
   .doing,.rec{grid-template-columns:1fr}
   .job{grid-template-columns:1fr;row-gap:6px}
@@ -175,14 +180,16 @@ footer .c1{grid-column:1/7}footer .c3{grid-column:7/13;text-align:right}
     </div>
     <div class="cta"><a href="#work">What I've built</a><a href="#research">My research</a><a class="soft" href="#live">See something live</a></div>
   </div>
-  <dl class="glance">
+  <figure class="portrait"><img src="assets/portrait.webp" width="760" height="1065" alt="Portrait of Ramanjit Singh"></figure>
+</div></header>
+<section class="strip"><div class="wrap">  <dl class="glance">
     <div><dt>now</dt><dd><b>Luna</b>, co-founder</dd></div>
     <div><dt>before</dt><dd><b>FemoraAI</b>, co-founder</dd></div>
     <div><dt>studying</dt><dd>B.Tech, Computer Science, Lovely Professional University, 2027</dd></div>
     <div><dt>from</dt><dd>Born in Phuket, Thailand. Raised in Punjab, India.</dd></div>
     <div><dt>off hours</dt><dd>History, geopolitics, mythology, poetry, singing</dd></div>
-  </dl>
-</div></header>
+  </dl></div></section>
+
 
 <main>
 <section class="s" style="padding-top:60px"><div class="wrap grid">
