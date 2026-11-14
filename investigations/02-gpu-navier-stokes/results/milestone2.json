@@ -1,0 +1,814 @@
+{
+ "bandwidth": {
+  "mode": "bw",
+  "device": "NVIDIA GeForce RTX 3050 4GB Laptop GPU",
+  "sm": "8.6",
+  "sms": 20,
+  "bus_bits": 64,
+  "copy_GBps_median": 103.86,
+  "copy_GBps_max": 104.65
+ },
+ "ablation": {
+  "128": [
+   {
+    "name": "baseline (milestone 1)",
+    "ms_per_step_median": 30.6334,
+    "ms_per_step_min": 28.7323,
+    "ms_per_step_max": 31.7023,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 30.0,
+    "phase_ms_per_step": {
+     "rhs": 0.0694,
+     "stage": 0.0396,
+     "projection": 29.6371
+    }
+   },
+   {
+    "name": "+ single-launch coarse solve",
+    "ms_per_step_median": 11.3868,
+    "ms_per_step_min": 11.2897,
+    "ms_per_step_max": 11.9486,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 30.0,
+    "phase_ms_per_step": {
+     "rhs": 0.065,
+     "stage": 0.0657,
+     "projection": 11.4315
+    }
+   },
+   {
+    "name": "+ CUDA Graph V-cycle",
+    "ms_per_step_median": 4.0645,
+    "ms_per_step_min": 4.0269,
+    "ms_per_step_max": 4.16,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 30.0,
+    "phase_ms_per_step": {
+     "rhs": 0.0677,
+     "stage": 0.045,
+     "projection": 4.1114
+    }
+   },
+   {
+    "name": "+ blind cycles, one check",
+    "ms_per_step_median": 3.3855,
+    "ms_per_step_min": 3.2849,
+    "ms_per_step_max": 3.4357,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 6.0,
+    "phase_ms_per_step": {
+     "rhs": 0.0685,
+     "stage": 0.0522,
+     "projection": 3.2289
+    }
+   },
+   {
+    "name": "+ warm start",
+    "ms_per_step_median": 3.2027,
+    "ms_per_step_min": 3.1618,
+    "ms_per_step_max": 3.3312,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.0783,
+     "stage": 0.0514,
+     "projection": 3.1226
+    }
+   },
+   {
+    "name": "+ mixed-precision multigrid",
+    "ms_per_step_median": 2.2848,
+    "ms_per_step_min": 2.2707,
+    "ms_per_step_max": 2.4491,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.0673,
+     "stage": 0.0624,
+     "projection": 2.1762
+    }
+   }
+  ],
+  "512": [
+   {
+    "name": "baseline (milestone 1)",
+    "ms_per_step_median": 57.1156,
+    "ms_per_step_min": 55.5525,
+    "ms_per_step_max": 58.0408,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 30.0,
+    "phase_ms_per_step": {
+     "rhs": 0.5681,
+     "stage": 0.4635,
+     "projection": 53.2315
+    }
+   },
+   {
+    "name": "+ single-launch coarse solve",
+    "ms_per_step_median": 36.4039,
+    "ms_per_step_min": 35.8907,
+    "ms_per_step_max": 36.5162,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 30.0,
+    "phase_ms_per_step": {
+     "rhs": 0.5808,
+     "stage": 0.4831,
+     "projection": 36.134
+    }
+   },
+   {
+    "name": "+ CUDA Graph V-cycle",
+    "ms_per_step_median": 26.9645,
+    "ms_per_step_min": 26.8647,
+    "ms_per_step_max": 27.0095,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 30.0,
+    "phase_ms_per_step": {
+     "rhs": 0.5721,
+     "stage": 0.4595,
+     "projection": 25.6452
+    }
+   },
+   {
+    "name": "+ blind cycles, one check",
+    "ms_per_step_median": 24.4443,
+    "ms_per_step_min": 24.3913,
+    "ms_per_step_max": 24.4979,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 6.0,
+    "phase_ms_per_step": {
+     "rhs": 0.6119,
+     "stage": 0.4801,
+     "projection": 23.3788
+    }
+   },
+   {
+    "name": "+ warm start",
+    "ms_per_step_median": 22.8163,
+    "ms_per_step_min": 22.7724,
+    "ms_per_step_max": 22.982,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.5677,
+     "stage": 0.4565,
+     "projection": 21.8546
+    }
+   },
+   {
+    "name": "+ mixed-precision multigrid",
+    "ms_per_step_median": 15.9887,
+    "ms_per_step_min": 15.9404,
+    "ms_per_step_max": 16.0412,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.5774,
+     "stage": 0.4626,
+     "projection": 14.9299
+    }
+   }
+  ],
+  "2048": [
+   {
+    "name": "baseline (milestone 1)",
+    "ms_per_step_median": 472.6895,
+    "ms_per_step_min": 470.6632,
+    "ms_per_step_max": 475.0289,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 30.0,
+    "phase_ms_per_step": {
+     "rhs": 9.5536,
+     "stage": 7.6878,
+     "projection": 453.6142
+    }
+   },
+   {
+    "name": "+ single-launch coarse solve",
+    "ms_per_step_median": 451.2242,
+    "ms_per_step_min": 450.7019,
+    "ms_per_step_max": 452.7912,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 30.0,
+    "phase_ms_per_step": {
+     "rhs": 9.6921,
+     "stage": 7.6917,
+     "projection": 434.9471
+    }
+   },
+   {
+    "name": "+ CUDA Graph V-cycle",
+    "ms_per_step_median": 441.1045,
+    "ms_per_step_min": 441.0233,
+    "ms_per_step_max": 441.4412,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 30.0,
+    "phase_ms_per_step": {
+     "rhs": 9.4029,
+     "stage": 7.7922,
+     "projection": 423.8695
+    }
+   },
+   {
+    "name": "+ blind cycles, one check",
+    "ms_per_step_median": 406.596,
+    "ms_per_step_min": 406.4642,
+    "ms_per_step_max": 406.7233,
+    "mg_cycles_per_solve": 8.0,
+    "host_syncs_per_step": 6.0,
+    "phase_ms_per_step": {
+     "rhs": 9.395,
+     "stage": 7.5201,
+     "projection": 389.5647
+    }
+   },
+   {
+    "name": "+ warm start",
+    "ms_per_step_median": 394.3407,
+    "ms_per_step_min": 394.1403,
+    "ms_per_step_max": 395.7449,
+    "mg_cycles_per_solve": 7.667,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 9.7551,
+     "stage": 7.3182,
+     "projection": 377.4442
+    }
+   },
+   {
+    "name": "+ mixed-precision multigrid",
+    "ms_per_step_median": 276.3644,
+    "ms_per_step_min": 275.1969,
+    "ms_per_step_max": 278.9407,
+    "mg_cycles_per_solve": 8.183,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 9.3878,
+     "stage": 7.9006,
+     "projection": 264.1552
+    }
+   }
+  ]
+ },
+ "vcycle_ms": {
+  "f64": {
+   "graph0": [
+    0.34507,
+    0.41826,
+    0.54636,
+    1.33712,
+    4.21427,
+    16.20896
+   ],
+   "graph1": [
+    0.08671,
+    0.14039,
+    0.21477,
+    0.89438,
+    3.74362,
+    15.48948
+   ]
+  },
+  "f32": {
+   "graph0": [
+    0.31525,
+    0.38156,
+    0.55951,
+    0.86227,
+    2.32219,
+    7.69311
+   ],
+   "graph1": [
+    0.05382,
+    0.06898,
+    0.12485,
+    0.43393,
+    1.7834,
+    7.1535
+   ]
+  },
+  "mixed": {
+   "graph0": [
+    0.32694,
+    0.4291,
+    0.52558,
+    1.05697,
+    2.94738,
+    10.48689
+   ],
+   "graph1": [
+    0.06754,
+    0.10037,
+    0.12466,
+    0.61221,
+    2.43382,
+    9.74574
+   ]
+  },
+  "N": [
+   64,
+   128,
+   256,
+   512,
+   1024,
+   2048
+  ]
+ },
+ "residual_history_N1024": {
+  "f64": [
+   0.9996478,
+   0.02520338,
+   0.001172068,
+   7.977213e-05,
+   5.791881e-06,
+   4.767204e-07,
+   3.974591e-08,
+   3.342611e-09,
+   2.83029e-10,
+   2.410925e-11,
+   2.059073e-12,
+   1.903285e-13,
+   4.70226e-14,
+   4.382721e-14,
+   4.630655e-14,
+   4.640074e-14,
+   4.552407e-14
+  ],
+  "f32": [
+   0.9996478,
+   0.02520343,
+   0.001169604,
+   7.97089e-05,
+   2.523917e-05,
+   2.247131e-05,
+   2.515614e-05,
+   2.515614e-05,
+   2.319773e-05,
+   2.507938e-05,
+   2.496413e-05,
+   2.458531e-05,
+   2.411199e-05,
+   2.486584e-05,
+   2.516799e-05,
+   2.500377e-05,
+   2.508753e-05
+  ],
+  "mixed": [
+   0.9996478,
+   0.02520337,
+   0.001172079,
+   7.975925e-05,
+   5.791123e-06,
+   4.766164e-07,
+   3.974493e-08,
+   3.342498e-09,
+   2.830195e-10,
+   2.409982e-11,
+   2.068513e-12,
+   1.850061e-13,
+   4.642673e-14,
+   4.736729e-14,
+   4.767744e-14,
+   4.670833e-14,
+   4.35039e-14
+  ]
+ },
+ "taylor_green": {
+  "f64": {
+   "N": [
+    32,
+    64,
+    128,
+    256,
+    512,
+    1024
+   ],
+   "linf": [
+    6.260113e-05,
+    1.572183e-05,
+    3.934937e-06,
+    9.840144e-07,
+    2.460211e-07,
+    6.150632e-08
+   ],
+   "order_linf": [
+    1.993,
+    1.998,
+    2.0,
+    2.0,
+    2.0
+   ],
+   "wall_ms": [
+    21.5,
+    50.15,
+    135.05,
+    452.73,
+    7636.04,
+    122670.1
+   ],
+   "max_div": [
+    4.142e-12,
+    3.663e-12,
+    2.111e-12,
+    1.087e-12,
+    2.85e-13,
+    9.047e-14
+   ]
+  },
+  "mixed": {
+   "N": [
+    32,
+    64,
+    128,
+    256,
+    512,
+    1024
+   ],
+   "linf": [
+    6.260113e-05,
+    1.572183e-05,
+    3.934937e-06,
+    9.840144e-07,
+    2.460211e-07,
+    6.150632e-08
+   ],
+   "order_linf": [
+    1.993,
+    1.998,
+    2.0,
+    2.0,
+    2.0
+   ],
+   "wall_ms": [
+    15.33,
+    35.58,
+    97.84,
+    314.75,
+    5336.06,
+    85292.0
+   ],
+   "max_div": [
+    4.142e-12,
+    3.664e-12,
+    2.11e-12,
+    1.096e-12,
+    2.985e-13,
+    9.952e-14
+   ]
+  }
+ },
+ "final": {
+  "f64": [
+   {
+    "mode": "bench",
+    "prec": "f64",
+    "N": 128,
+    "ms_per_step_median": 3.2022,
+    "ms_per_step_min": 3.1215,
+    "ms_per_step_max": 3.222,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.0721,
+     "stage": 0.0567,
+     "projection": 3.0948
+    },
+    "rhs_GBps": 21.82,
+    "cells_per_s": 5116500.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "f64",
+    "N": 256,
+    "ms_per_step_median": 5.4198,
+    "ms_per_step_min": 5.4116,
+    "ms_per_step_max": 5.4458,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.1629,
+     "stage": 0.129,
+     "projection": 5.2028
+    },
+    "rhs_GBps": 38.62,
+    "cells_per_s": 12092000.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "f64",
+    "N": 512,
+    "ms_per_step_median": 22.9785,
+    "ms_per_step_min": 22.9146,
+    "ms_per_step_max": 23.288,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.5789,
+     "stage": 0.4681,
+     "projection": 21.9398
+    },
+    "rhs_GBps": 43.47,
+    "cells_per_s": 11408000.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "f64",
+    "N": 1024,
+    "ms_per_step_median": 92.3737,
+    "ms_per_step_min": 92.2674,
+    "ms_per_step_max": 92.4266,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 2.3483,
+     "stage": 1.9006,
+     "projection": 88.0326
+    },
+    "rhs_GBps": 42.87,
+    "cells_per_s": 11351000.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "f64",
+    "N": 2048,
+    "ms_per_step_median": 394.3767,
+    "ms_per_step_min": 394.2993,
+    "ms_per_step_max": 394.6507,
+    "mg_cycles_per_solve": 7.667,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 9.0195,
+     "stage": 7.5676,
+     "projection": 377.6435
+    },
+    "rhs_GBps": 44.64,
+    "cells_per_s": 10635000.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   }
+  ],
+  "mixed": [
+   {
+    "mode": "bench",
+    "prec": "mixed",
+    "N": 128,
+    "ms_per_step_median": 2.2231,
+    "ms_per_step_min": 2.1945,
+    "ms_per_step_max": 2.4252,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.0601,
+     "stage": 0.0413,
+     "projection": 2.1523
+    },
+    "rhs_GBps": 26.16,
+    "cells_per_s": 7369900.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "mixed",
+    "N": 256,
+    "ms_per_step_median": 3.7961,
+    "ms_per_step_min": 3.6684,
+    "ms_per_step_max": 3.8802,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.1578,
+     "stage": 0.1283,
+     "projection": 3.5213
+    },
+    "rhs_GBps": 39.86,
+    "cells_per_s": 17264000.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "mixed",
+    "N": 512,
+    "ms_per_step_median": 16.0287,
+    "ms_per_step_min": 15.9422,
+    "ms_per_step_max": 16.074,
+    "mg_cycles_per_solve": 7.333,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.6122,
+     "stage": 0.4983,
+     "projection": 14.9702
+    },
+    "rhs_GBps": 41.11,
+    "cells_per_s": 16355000.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "mixed",
+    "N": 1024,
+    "ms_per_step_median": 64.3965,
+    "ms_per_step_min": 63.7464,
+    "ms_per_step_max": 64.5876,
+    "mg_cycles_per_solve": 7.44,
+    "host_syncs_per_step": 9.01,
+    "phase_ms_per_step": {
+     "rhs": 2.4206,
+     "stage": 1.8429,
+     "projection": 59.6034
+    },
+    "rhs_GBps": 41.59,
+    "cells_per_s": 16283000.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "mixed",
+    "N": 2048,
+    "ms_per_step_median": 276.7249,
+    "ms_per_step_min": 275.4486,
+    "ms_per_step_max": 279.004,
+    "mg_cycles_per_solve": 8.183,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 9.414,
+     "stage": 7.707,
+     "projection": 263.9425
+    },
+    "rhs_GBps": 42.77,
+    "cells_per_s": 15157000.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   }
+  ],
+  "f32": [
+   {
+    "mode": "bench",
+    "prec": "f32",
+    "N": 128,
+    "ms_per_step_median": 9.3668,
+    "ms_per_step_min": 9.3013,
+    "ms_per_step_max": 9.4373,
+    "mg_cycles_per_solve": 40.0,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.0817,
+     "stage": 0.1194,
+     "projection": 9.3185
+    },
+    "rhs_GBps": 9.63,
+    "cells_per_s": 1749200.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "f32",
+    "N": 256,
+    "ms_per_step_median": 13.65,
+    "ms_per_step_min": 13.6073,
+    "ms_per_step_max": 13.7135,
+    "mg_cycles_per_solve": 40.0,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.0437,
+     "stage": 0.0782,
+     "projection": 13.6378
+    },
+    "rhs_GBps": 71.93,
+    "cells_per_s": 4801200.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "f32",
+    "N": 512,
+    "ms_per_step_median": 54.6236,
+    "ms_per_step_min": 54.5645,
+    "ms_per_step_max": 54.6368,
+    "mg_cycles_per_solve": 40.0,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.1505,
+     "stage": 0.2519,
+     "projection": 54.195
+    },
+    "rhs_GBps": 83.6,
+    "cells_per_s": 4799100.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "f32",
+    "N": 1024,
+    "ms_per_step_median": 220.0575,
+    "ms_per_step_min": 219.9543,
+    "ms_per_step_max": 220.0787,
+    "mg_cycles_per_solve": 40.0,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 0.5435,
+     "stage": 0.8995,
+     "projection": 218.5662
+    },
+    "rhs_GBps": 92.61,
+    "cells_per_s": 4765000.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   },
+   {
+    "mode": "bench",
+    "prec": "f32",
+    "N": 2048,
+    "ms_per_step_median": 872.2614,
+    "ms_per_step_min": 872.0127,
+    "ms_per_step_max": 872.7751,
+    "mg_cycles_per_solve": 40.0,
+    "host_syncs_per_step": 9.0,
+    "phase_ms_per_step": {
+     "rhs": 1.9619,
+     "stage": 3.8581,
+     "projection": 866.2309
+    },
+    "rhs_GBps": 102.62,
+    "cells_per_s": 4808500.0,
+    "cfg": {
+     "graph": 1,
+     "coarse1": 1,
+     "warm": 1,
+     "adaptive": 1
+    }
+   }
+  ]
+ },
+ "runtime_s": 547.2
+}

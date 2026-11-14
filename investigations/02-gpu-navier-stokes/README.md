@@ -1,6 +1,6 @@
 # 02. A GPU Navier–Stokes solver
 
-**Status. In progress.** Milestone 1 (verified 2D periodic solver, convergence, multigrid, first performance baseline) complete. Kernel optimisation, wall-bounded flows and the CUDA anatomy study are next.
+**Status. In progress.** Milestone 1 (verified solver, convergence, multigrid, baseline) and milestone 2 (latency removal, mixed-precision multigrid) complete. Wall-bounded flows, shared-memory smoothers and hardware-counter profiling are next.
 
 ## Question
 On a bandwidth-limited consumer GPU, how accurately and how fast can a from-scratch incompressible flow solver run, and where does its time go?
@@ -57,8 +57,47 @@ In FP32 the relative residual cannot fall below a floor that grows with N, from 
 - Wall-clock numbers are from a laptop GPU whose clocks vary with temperature. Each figure is one run of 30 steps after 5 warm-up steps, no variance reported yet.
 - The FLOP-bound claim for FP64 is an estimate until profiled.
 
-## Next (milestone 2)
-1. Remove the latency floor: single-block coarse solve, device-side convergence check, CUDA Graph capture of the V-cycle.
-2. Nsight Compute roofline of every kernel (this is where investigation "The anatomy of GPU computation" starts).
-3. Mixed-precision multigrid: FP32 smoothing with FP64 residuals and refinement.
-4. Walls and the lid-driven cavity against published benchmark data.
+## Milestone 2. Removing the latency floor (`results/milestone2.json`, run time 547 s)
+
+Every change is a switch (`--graph --coarse1 --warm --adaptive`, `--prec mixed`), so each one is measured on its own, added in order. FP64, ms per time step, median of 5 repeats (the min–max spread is under 4% everywhere).
+
+| change, cumulative | N = 128 | N = 512 | N = 2048 |
+|---|---|---|---|
+| baseline (milestone 1) | 30.63 | 57.12 | 472.7 |
+| + single-launch coarse solve | 11.39 | 36.40 | 451.2 |
+| + CUDA Graph capture of the V-cycle | 4.06 | 26.96 | 441.1 |
+| + run the expected cycles blind, check once | 3.39 | 24.44 | 406.6 |
+| + warm start from the previous solve | 3.20 | 22.82 | 394.3 |
+| + mixed-precision multigrid | **2.28** | **15.99** | **276.4** |
+| total speed-up | **13.4×** | **3.6×** | **1.7×** |
+
+- **At small N the cost was launches, not arithmetic.** Replacing 120 coarse-grid launches with one shared-memory kernel, then capturing each V-cycle as a CUDA Graph, cut N = 128 from 30.6 to 4.1 ms. A V-cycle at N = 64 fell from 0.345 to 0.087 ms.
+- **Host synchronisations per step fell from 30 to 6** by running the expected number of cycles (from the measured contraction factor of about 0.06) before the first convergence check. Warm start then saves about 0.7 cycles per solve but adds 3 checks back. Its net gain is small, 5%.
+- **At large N the solver is now bandwidth bound.** A V-cycle at N = 2048 takes 15.5 ms with or without graphs. By my traffic estimate (about 35 grid-sized arrays read or written per cycle, with coarse levels adding a third) that is roughly 75 GB/s, about 70% of the measured 104.4 GB/s. This is an estimate until the hardware counters are available.
+
+### Mixed-precision multigrid
+Each correction is computed by one FP32 V-cycle on the FP64 residual, then added to the FP64 iterate (iterative refinement, Higham and Mary 2022).
+
+| relative residual after cycle k, N = 1024 | 3 | 6 | 9 | 12 | 16 |
+|---|---|---|---|---|---|
+| FP64 | 8.0e-5 | 4.0e-8 | 2.4e-11 | 4.7e-14 | 4.6e-14 |
+| FP32 | 8.0e-5 | 2.5e-5 | 2.5e-5 | 2.4e-5 | 2.5e-5 |
+| mixed | 8.0e-5 | 4.0e-8 | 2.4e-11 | 4.6e-14 | 4.4e-14 |
+
+The mixed solver follows the FP64 contraction cycle for cycle down to 4.6 × 10⁻¹⁴, while pure FP32 stalls at 2.5 × 10⁻⁵. On Taylor–Green the mixed solver reproduces **every FP64 error digit at every N from 32 to 1024** (6.150632 × 10⁻⁸ at N = 1024) and runs 1.4 to 1.45× faster (5.3 s against 7.6 s at N = 1024). Halving the bytes moved by the smoother is where the gain comes from, which is consistent with the bandwidth-bound reading above.
+
+### Throughput after milestone 2
+| N | 128 | 256 | 512 | 1024 | 2048 |
+|---|---|---|---|---|---|
+| FP64, ms/step | 3.20 | 5.42 | 22.98 | 92.37 | 394.4 |
+| mixed, ms/step | 2.22 | 3.80 | 16.03 | 64.40 | 276.7 |
+| mixed, cell-steps per second | 7.4e6 | 1.73e7 | 1.64e7 | 1.63e7 | 1.52e7 |
+
+## Not done yet, and why
+- **Hardware-counter profiling.** Nsight Compute 2026.4 is installed but Windows blocks counter access (`ERR_NVGPUCTRPERM`) until it is enabled in the NVIDIA Control Panel with administrator rights.
+- **Lid-driven cavity.** It needs walls (no-slip velocity, Neumann pressure in the multigrid) and the published benchmark table, which I will take from the source rather than from memory. Moved to milestone 3.
+
+## Next (milestone 3)
+1. Shared-memory, temporally blocked red-black smoother to cut fine-level traffic, measured against the roofline once counters are on.
+2. Walls and the lid-driven cavity against the Ghia, Ghia and Shin (1982) tables.
+3. A live WebGPU port of this solver for the website, replacing the CPU-only hero flow.

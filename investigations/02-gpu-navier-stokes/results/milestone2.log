@@ -1,0 +1,7 @@
+ablation 128 [('baseline (milestone 1)', 30.6334), ('+ single-launch coarse solve', 11.3868), ('+ CUDA Graph V-cycle', 4.0645), ('+ blind cycles, one check', 3.3855), ('+ warm start', 3.2027), ('+ mixed-precision multigrid', 2.2848)] t=8s
+ablation 512 [('baseline (milestone 1)', 57.1156), ('+ single-launch coarse solve', 36.4039), ('+ CUDA Graph V-cycle', 26.9645), ('+ blind cycles, one check', 24.4443), ('+ warm start', 22.8163), ('+ mixed-precision multigrid', 15.9887)] t=31s
+ablation 2048 [('baseline (milestone 1)', 472.6895), ('+ single-launch coarse solve', 451.2242), ('+ CUDA Graph V-cycle', 441.1045), ('+ blind cycles, one check', 406.596), ('+ warm start', 394.3407), ('+ mixed-precision multigrid', 276.3644)] t=163s
+vcycle {'f64': {'graph0': [0.34507, 0.41826, 0.54636, 1.33712, 4.21427, 16.20896], 'graph1': [0.08671, 0.14039, 0.21477, 0.89438, 3.74362, 15.48948]}, 'f32': {'graph0': [0.31525, 0.38156, 0.55951, 0.86227, 2.32219, 7.69311], 'graph1': [0.05382, 0.06898, 0.12485, 0.43393, 1.7834, 7.1535]}, 'mixed': {'graph0': [0.32694, 0.4291, 0.52558, 1.05697, 2.94738, 10.48689], 'graph1': [0.06754, 0.10037, 0.12466, 0.61221, 2.43382, 9.74574]}, 'N': [64, 128, 256, 512, 1024, 2048]} t=174s
+tg f64 [6.260113e-05, 1.572183e-05, 3.934937e-06, 9.840144e-07, 2.460211e-07, 6.150632e-08] [21.5, 50.15, 135.05, 452.73, 7636.04, 122670.1] t=307s
+tg mixed [6.260113e-05, 1.572183e-05, 3.934937e-06, 9.840144e-07, 2.460211e-07, 6.150632e-08] [15.33, 35.58, 97.84, 314.75, 5336.06, 85292.0] t=399s
+done 547.2
