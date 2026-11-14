@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-11-14T09:14:57.145Z",
+        "reason": "user confirmed: art direction brief names Geist as preferred interface face; user approved comp D"
+      }
+    ]
+  }
+}

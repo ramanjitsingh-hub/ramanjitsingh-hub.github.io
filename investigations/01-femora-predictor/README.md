@@ -28,14 +28,14 @@ Reproduce with `python run_experiments.py` (≈ 270 s on one laptop CPU core) an
 
 | Cohort (2,000 users) | Model | MAE (d) | 80% coverage | Width (d) | CRPS | Log score |
 |---|---|---|---|---|---|---|
-| main | production (as written) | 3.95 | 0.749 | 7.2 | 3.297 | 4.170 |
-| main | minimal fix (P + q + r, no gate) | 4.55 | 0.659 | 7.3 | 3.792 | 4.737 |
-| main | robust grid Bayes | **3.84** | 0.848 | 10.2 | **3.085** | **2.729** |
-| clean | production | 2.07 | 0.822 | 7.1 | 1.495 | 2.447 |
-| clean | minimal fix | **2.03** | 0.846 | 7.3 | **1.475** | 2.430 |
-| clean | robust grid Bayes | 2.05 | 0.918 | 9.8 | 1.565 | **2.425** |
-| misspecified (t₃ noise, 2× contamination) | production | 5.54 | 0.713 | 6.8 | 4.931 | 5.742 |
-| misspecified | robust grid Bayes | **5.41** | 0.792 | 9.8 | **4.509** | **2.908** |
+| main | production (as written) | 3.95 | 0.749 | 7.25 | 3.297 | 4.170 |
+| main | minimal fix (P + q + r, no gate) | 4.55 | 0.659 | 7.33 | 3.792 | 4.737 |
+| main | robust grid Bayes | **3.84** | 0.848 | 10.23 | **3.085** | **2.729** |
+| clean | production | 2.07 | 0.822 | 7.06 | 1.495 | 2.447 |
+| clean | minimal fix | **2.03** | 0.846 | 7.33 | **1.475** | 2.430 |
+| clean | robust grid Bayes | 2.05 | 0.918 | 9.79 | 1.565 | **2.425** |
+| misspecified (t₃ noise, 2× contamination) | production | 5.54 | 0.713 | 6.79 | 4.931 | 5.742 |
+| misspecified | robust grid Bayes | **5.41** | 0.792 | 9.80 | **4.509** | **2.908** |
 
 Lower is better for MAE, CRPS and log score. The log-score gap (4.17 vs 2.73) comes from the Gaussian forecast putting almost no mass on merged or long cycles. Two honest caveats. The robust model **over-covers on clean data** (0.918). Part of that is its contamination prior, part is that equal-tailed intervals on integer days are conservative. Removing the gate without a robust likelihood (the "minimal fix") is **worse** than production under contamination, so the gate was doing real work.
 

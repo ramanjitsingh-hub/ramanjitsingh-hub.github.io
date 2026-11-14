@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Re-deriving a Cycle Predictor</title>
+<meta name="description" content="Investigation 01. A line-by-line re-derivation of the Kalman-filter cycle predictor shipped at FemoraAI, its failure modes, and an exact Bayesian replacement, evaluated on synthetic data.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
+:root{
+  --ivory:#F6F4EF;--paper:#FBFAF7;--stone:#EBE8E1;--rule:#DCD8CF;--charcoal:#1D1E20;--graphite:#5B5E63;--faint:#8A8C8F;
+  --lavender:#9D93C8;--lavender-deep:#6F64A8;--powder:#9FBCD6;--sage:#A3B59B;--sage-deep:#6E8565;
+  --sans:"Geist",ui-sans-serif,system-ui,sans-serif;--mono:"Geist Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:90px}
+body{background:var(--ivory);color:var(--charcoal);font-family:var(--sans);font-size:17px;line-height:1.68;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.mono{font-family:var(--mono);font-size:11.5px;letter-spacing:.02em;color:var(--graphite)}
+.wrap{max-width:1320px;margin:0 auto;padding:0 32px}
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px}
+
+nav{position:fixed;inset:0 0 auto 0;z-index:10;padding:22px 0;background:rgba(246,244,239,.88);backdrop-filter:blur(10px);border-bottom:1px solid transparent;transition:border-color .3s}
+nav.solid{border-bottom-color:var(--rule)}
+nav .grid{align-items:baseline}
+nav .who{grid-column:1/5;font-size:14px;font-weight:500;text-decoration:none}
+nav .links{grid-column:5/10;display:flex;gap:28px;font-size:14px;color:var(--graphite)}
+nav .links a{text-decoration:none}nav .links a:hover{color:var(--charcoal)}
+nav .rev{grid-column:10/13;text-align:right}
+
+header.top{padding:170px 0 64px;border-bottom:1px solid var(--rule)}
+.kicker{grid-column:1/-1;margin-bottom:26px}
+.tick{display:inline-block;width:18px;height:1px;background:var(--graphite);vertical-align:middle;margin-right:10px}
+.top h1{grid-column:1/10;font-weight:300;font-size:clamp(40px,5.4vw,78px);line-height:1.02;letter-spacing:-.035em}
+.top .abstract{grid-column:1/8;margin-top:40px;font-size:19px;font-weight:300;line-height:1.55;color:var(--charcoal)}
+.top .side{grid-column:9/13;margin-top:40px;align-self:start}
+.status{display:inline-flex;align-items:center;gap:8px}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--lavender)}
+.datanote{margin-top:16px;padding:14px 16px;border:1px solid var(--rule);background:var(--paper);font-size:13.5px;line-height:1.5;color:var(--graphite)}
+.datanote b{color:var(--charcoal);font-weight:500}
+dl.meta{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin-top:18px;font-family:var(--mono);font-size:11.5px}
+dl.meta dt{color:var(--faint)}dl.meta dd{color:var(--charcoal);text-align:right}
+
+main{padding:40px 0 0}
+.toc{grid-column:1/4;position:sticky;top:110px;align-self:start;padding-top:44px}
+.toc ol{list-style:none}
+.toc li a{display:grid;grid-template-columns:28px 1fr;padding:5px 0;font-size:13.5px;color:var(--faint);text-decoration:none;transition:color .2s}
+.toc li a span{font-family:var(--mono);font-size:11px;padding-top:2px}
+.toc li a:hover,.toc li a.on{color:var(--charcoal)}
+article{grid-column:4/11;min-width:0}
+article section{padding-top:52px}
+article h2{font-weight:400;font-size:30px;letter-spacing:-.02em;line-height:1.15;margin-bottom:22px}
+article h2 .n{display:block;font-family:var(--mono);font-size:11.5px;color:var(--graphite);letter-spacing:.02em;margin-bottom:10px}
+article h3{font-weight:500;font-size:17px;margin:30px 0 8px}
+article p{margin:0 0 16px;max-width:68ch}
+article p.lead{font-size:19px;font-weight:300;line-height:1.55}
+.eq{margin:20px 0 22px;overflow-x:auto;overflow-y:hidden;padding:2px 0}
+.prop{margin:26px 0;padding:4px 0 4px 20px;border-left:2px solid var(--lavender)}
+.prop .h{font-family:var(--mono);font-size:11.5px;color:var(--lavender-deep);margin-bottom:6px;letter-spacing:.02em}
+.prop p{margin-bottom:10px}
+.proof{font-size:15.5px;color:var(--graphite)}
+.proof em{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-right:6px}
+code,.code{font-family:var(--mono);font-size:13.5px;background:var(--stone);padding:1px 5px;border-radius:2px}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.6;background:var(--paper);border:1px solid var(--rule);padding:16px 18px;overflow-x:auto;margin:16px 0 22px;color:var(--charcoal)}
+pre .c{color:var(--faint)}
+
+.fig{margin:30px 0 34px}
+.fig.wide{margin-right:calc(-1 * (100% / 7 * 2 + 24px))}
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:2px;padding:20px 20px 14px}
+.fig-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.fig svg{display:block;width:100%;height:auto;overflow:visible}
+.cap{margin-top:12px;font-size:13.5px;line-height:1.55;color:var(--graphite);max-width:72ch}
+.cap b{color:var(--charcoal);font-weight:500}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px}
+.sw{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:7px}
+.sw.dash{background:repeating-linear-gradient(90deg,var(--graphite) 0 4px,transparent 4px 7px)!important}
+.sw.area{height:8px;opacity:.5}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.seg button{font-family:var(--mono);font-size:11px;letter-spacing:.02em;background:none;border:0;padding:5px 10px;color:var(--graphite);cursor:pointer}
+.seg button+button{border-left:1px solid var(--rule)}
+.seg button.on{background:var(--charcoal);color:var(--ivory)}
+.sliders{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)}
+.sliders label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--graphite)}
+.sliders label b{color:var(--charcoal);font-weight:500}
+.sliders input{width:100%;accent-color:var(--lavender-deep);margin-top:4px}
+.duo{display:grid;grid-template-columns:1.25fr 1fr;gap:20px;align-items:start}
+
+table.res{width:100%;border-collapse:collapse;font-size:14px;margin:6px 0 4px;font-feature-settings:"tnum"}
+table.res th{font-family:var(--mono);font-weight:400;font-size:11px;color:var(--faint);text-align:right;padding:8px 6px;border-bottom:1px solid var(--charcoal);letter-spacing:.02em}
+table.res th:first-child,table.res td:first-child{text-align:left}
+table.res td{padding:10px 6px;border-bottom:1px solid var(--rule);text-align:right}
+table.res td.best{font-weight:500}
+table.res td .bar{display:inline-block;height:3px;background:var(--lavender);vertical-align:middle;margin-left:8px;opacity:.7}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:24px 0}
+.stat{border-top:1px solid var(--charcoal);padding-top:10px}
+.stat b{display:block;font-weight:300;font-size:36px;letter-spacing:-.03em;line-height:1.1;font-feature-settings:"tnum"}
+.stat span{font-size:13.5px;color:var(--graphite)}
+ol.refs{list-style:none;counter-reset:r;font-size:14px;color:var(--graphite)}
+ol.refs li{counter-increment:r;display:grid;grid-template-columns:34px 1fr;padding:7px 0;border-bottom:1px solid var(--rule)}
+ol.refs li::before{content:"[" counter(r) "]";font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:3px}
+ol.refs i{color:var(--charcoal);font-style:normal}
+sup.r{font-family:var(--mono);font-size:10px;color:var(--lavender-deep)}
+sup.r a{text-decoration:none}
+
+footer{padding:120px 0 48px}
+footer .grid{border-top:1px solid var(--rule);padding-top:22px;align-items:baseline}
+footer .c1{grid-column:1/5}footer .c2{grid-column:5/9}footer .c3{grid-column:9/13;text-align:right}
+
+@media (max-width:1100px){.fig.wide{margin-right:0}}
+@media (max-width:980px){
+  .wrap{padding:0 16px}
+  nav .links{display:none}nav .who{grid-column:1/8}nav .rev{grid-column:8/13}
+  .top h1,.top .abstract,.top .side{grid-column:1/-1}
+  .toc{display:none}article{grid-column:1/-1}
+  .duo,.sliders{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr}
+  table.res{font-size:12.5px}table.res td .bar{display:none}
+  footer .c1,footer .c2,footer .c3{grid-column:1/-1;text-align:left;margin-bottom:8px}
+}
+</style>
+</head>
+<body>
+
+<nav id="nav"><div class="wrap grid">
+  <a class="who" href="../">Ramanjit Singh</a>
+  <div class="links"><a href="../#work">Investigations</a><a href="../#about">About</a><a href="https://github.com/ramanjitsingh-hub">Code</a></div>
+  <span class="rev mono">investigation 01</span>
+</div></nav>
+
+<header class="top"><div class="wrap grid">
+  <div class="kicker mono"><span class="tick"></span>Investigation 01 · Adaptive Bayesian state estimation, phase one</div>
+  <h1>Re-deriving a production cycle predictor</h1>
+  <p class="abstract">At FemoraAI I shipped a per-user Kalman filter that predicted the start of each user's next period. This investigation ports that system line by line, derives what it actually computes, and finds four concrete failure modes. It then replaces the system with an exact Bayesian grid filter and measures both against ground truth on 6,000 simulated users.</p>
+  <div class="side">
+    <div class="status mono"><i></i>in progress · synthetic-data study complete</div>
+    <div class="datanote"><b>Data note.</b> The production model ran in FemoraAI on real users' data. Every result on this page is computed on synthetic data with known ground truth. No FemoraAI user data is used or shown.</div>
+    <dl class="meta" id="meta">
+      <dt>cohorts</dt><dd>3 × 2,000 users × 24 cycles</dd>
+      <dt>runtime</dt><dd id="m-rt">·</dd>
+      <dt>environment</dt><dd id="m-env">·</dd>
+      <dt>tests</dt><dd>7 passing</dd>
+      <dt>code</dt><dd><a href="https://github.com/ramanjitsingh-hub">investigations/01-femora-predictor</a></dd>
+    </dl>
+  </div>
+</div></header>
+
+<main><div class="wrap grid">
+  <aside class="toc"><ol id="toc">
+    <li><a href="#s1"><span>1</span>The system as shipped</a></li>
+    <li><a href="#s2"><span>2</span>A filter that becomes an average</a></li>
+    <li><a href="#s3"><span>3</span>What the interval means</a></li>
+    <li><a href="#s4"><span>4</span>An absorbing gate</a></li>
+    <li><a href="#s5"><span>5</span>An exact Bayesian replacement</a></li>
+    <li><a href="#s6"><span>6</span>Results</a></li>
+    <li><a href="#s7"><span>7</span>A feedback loop that never saved</a></li>
+    <li><a href="#s8"><span>8</span>Limitations and next steps</a></li>
+    <li><a href="#s9"><span>9</span>Reproduce</a></li>
+    <li><a href="#refs"><span>·</span>References</a></li>
+  </ol></aside>
+
+  <article>
+
+  <section id="s1">
+    <h2><span class="n">§1</span>The system as shipped</h2>
+    <p class="lead">The predictor sees one number per completed cycle, the number of days between consecutive period starts, clamped to the interval [15, 60].</p>
+    <p>Two estimators run side by side on that sequence. The first is a scalar Kalman filter on a random-walk level,</p>
+    <div class="eq">$$x_k = x_{k-1} + w_k,\quad w_k\sim\mathcal N(0,q),\qquad z_k = x_k + v_k,\quad v_k\sim\mathcal N(0,r),$$</div>
+    <p>with \(q = 0.5\), \(r = 4\), and the prior \(x_0 \sim \mathcal N(\text{self-reported length},\,9)\). The second is an exponentially weighted moving average with an exponentially weighted variance,</p>
+    <div class="eq">$$m_k = \alpha z_k + (1-\alpha)\,m_{k-1},\qquad s_k^2 = (1-\alpha)\big(s_{k-1}^2 + \alpha\,(z_k - m_{k-1})^2\big),\qquad \alpha = 0.3 .$$</div>
+    <p>An observation is discarded as an outlier when \(|z_k - m_{k-1}| > 3\,s_{k-1}\). Otherwise both estimators update and the service reports</p>
+    <div class="eq">$$\mu_k = \tfrac12\hat x_k + \tfrac12 m_k,\qquad \sigma_k^2 = P_k + s_k^2,\qquad \text{interval} = \mu_k \pm 1.2816\,\sigma_k\,c_k ,$$</div>
+    <p>where \(c_k \in [0.8, 2]\) is a scale that a feedback loop nudges toward an 80% empirical hit rate, and \(\alpha\) is retuned within [0.1, 0.6] by the same loop. A separate layer shifts \(\mu\) by learned per-symptom offsets. Symptoms are out of scope here.</p>
+    <p>The port in <code>femora_port.py</code> mirrors the Java classes one to one, including Java's rounding rule <code>Math.round(x) = ⌊x + ½⌋</code>, so the Python predictions match the service to the day.</p>
+  </section>
+
+  <section id="s2">
+    <h2><span class="n">§2</span>A filter that becomes an average</h2>
+    <p>The Kalman variance follows a deterministic recursion that does not depend on the data. With \(M_k = P_{k-1} + q\) the prior variance,</p>
+    <div class="eq">$$P_k = \frac{M_k\,r}{M_k + r},\qquad K_k = \frac{M_k}{M_k + r}.$$</div>
+    <div class="prop">
+      <div class="h">Proposition 1 · steady state</div>
+      <p>For any \(P_0 \ge 0\) the recursion converges to the positive root of \(M^2 - qM - qr = 0\), so</p>
+      <div class="eq">$$K_\infty = \frac{M_\infty}{M_\infty + r},\qquad M_\infty = \tfrac12\Big(q + \sqrt{q^2 + 4qr}\Big).$$</div>
+      <p>At \(q = 0.5,\ r = 4\) this gives \(M_\infty = 1.6861\), \(P_\infty = 1.1861\) and \(K_\infty = 0.2965\). Once \(K_k \approx K_\infty\) the update \(\hat x_k = \hat x_{k-1} + K_\infty (z_k - \hat x_{k-1})\) is exactly an exponential moving average with weight \(K_\infty\).</p>
+      <p class="proof"><em>proof</em>The map \(P \mapsto (P+q)r/(P+q+r)\) is increasing and concave with derivative \(r^2/(P+q+r)^2 < 1\), so it is a contraction on \([0,\infty)\) with a unique fixed point. Setting \(P = Mr/(M+r)\) with \(M = P + q\) and clearing denominators gives the quadratic. ∎</p>
+    </div>
+    <p>This is a classical result. Muth showed in 1960 that exponential smoothing is the optimal forecast for exactly this local-level model<sup class="r"><a href="#refs">[3]</a></sup>. What is specific to the shipped system is that it blends the filter with an EWMA whose weight, 0.3, is within 0.004 of the weight the filter converges to. After the first few cycles the blend averages two copies of the same smoother.</p>
+
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 1 &nbsp;cobweb of the variance recursion, live</span><span class="mono" id="k-read">·</span></div>
+      <div class="duo">
+        <svg id="cob" viewBox="0 0 420 340" role="img" aria-label="Cobweb diagram of the Kalman variance recursion"></svg>
+        <svg id="gain" viewBox="0 0 340 340" role="img" aria-label="Kalman gain by cycle against the EWMA weight"></svg>
+      </div>
+      <div class="sliders">
+        <div><label for="q">process noise q <b id="qv">·</b></label><input id="q" type="range" min="-3" max="2.3" step="0.0001" value="-0.6931"></div>
+        <div><label for="r">observation noise r <b id="rv">·</b></label><input id="r" type="range" min="-1" max="3.2" step="0.0001" value="1.3863"></div>
+      </div>
+    </div>
+    <p class="cap"><b>Figure 1.</b> Left, the map \(P_{k-1}\mapsto P_k\) and its iterates from \(P_0 = 9\). Right, the gain \(K_k\) against the EWMA weight \(\alpha = 0.3\) (dashed). The sliders start at the production values. Computed in your browser from the recursion above.</p></div>
+
+    <div class="fig"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 2 &nbsp;mean |x̂ − m| across 500 simulated users</span></div>
+      <svg id="gap" viewBox="0 0 640 230" role="img" aria-label="Gap between Kalman and EWMA means by cycle"></svg>
+    </div>
+    <p class="cap"><b>Figure 2.</b> Mean absolute difference between the Kalman mean and the α = 0.3 EWMA, gate disabled, on clean synthetic data (log scale). It falls below 0.1 days by cycle 8 and below 0.01 days after cycle 17.</p></div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="n">§3</span>What the interval means</h2>
+    <p>Under the filter's own model the predictive distribution of the next cycle is</p>
+    <div class="eq">$$z_{k+1}\mid z_{1:k} \sim \mathcal N\big(\hat x_k,\; P_k + q + r\big),\qquad P_\infty + q + r = 5.686 .$$</div>
+    <p>The service reports \(\sigma^2 = P_k + s_k^2\) instead. \(P_k\) alone is the uncertainty of the level, not of the next observation, so the observation noise \(r\) appears to be missing. My first reading was that the interval is miscalibrated by construction. That reading was wrong, and the reason is instructive.</p>
+    <p>At stationarity the EWMA variance satisfies \(\mathbb E[s^2] = (1-\alpha)\,\mathbb E[\delta^2]\), where \(\delta = z_k - m_{k-1}\) is the one-step forecast error. Because \(\alpha \approx K_\infty\), the EWMA is close to the steady-state filter and \(\mathbb E[\delta^2] \approx M_\infty + r = 5.686\). So</p>
+    <div class="eq">$$\mathbb E[\sigma^2] \approx P_\infty + (1-\alpha)(M_\infty + r) = 1.186 + 0.7 \times 5.686 = 5.166 ,$$</div>
+    <p>about 9% below the correct variance, or 5% in standard deviation. A nominal 80% Gaussian interval that is 5% too narrow covers about 78%. Rounding both endpoints to whole days and counting them as inclusive adds the rest back. The simulation agrees. On clean data the shipped interval covers 82.2% of cycles.</p>
+    <p>The interval breaks when the data stops being Gaussian. Missed logs, which merge two cycles into one, and occasional long cycles put real probability far in the tail, where a Gaussian puts almost none.</p>
+
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 3 &nbsp;empirical coverage of the nominal 80% interval, by cycle</span>
+        <span class="seg" data-cohort-switch><button data-c="main/as_written" class="on">contaminated</button><button data-c="clean/as_written">clean</button><button data-c="misspecified/as_written">misspecified</button></span></div>
+      <svg id="cov" viewBox="0 0 860 280" role="img" aria-label="Coverage by cycle for three models"></svg>
+      <div class="legend mono"><span><i class="sw dash"></i>production</span><span><i class="sw" style="background:var(--faint)"></i>minimal fix, P + q + r, no gate</span><span><i class="sw" style="background:var(--lavender)"></i>robust grid filter</span><span><i class="sw" style="background:var(--sage)"></i>nominal 0.80</span></div>
+    </div>
+    <p class="cap"><b>Figure 3.</b> Each point is the fraction of 2,000 users whose observed cycle fell inside the interval issued before it. "Contaminated" has missed logs (5%), long cycles (4%) and level shifts (15% of users). "Clean" has none. "Misspecified" uses heavy-tailed t₃ noise and doubles the contamination, while the robust model keeps its original assumptions.</p></div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="n">§4</span>An absorbing gate</h2>
+    <p>The outlier gate compares each observation against the EWMA moments. When it rejects an observation, nothing updates, including the moments it compares against.</p>
+    <div class="prop">
+      <div class="h">Proposition 2 · lock-out</div>
+      <p>Suppose the true level shifts by \(\Delta\) and every later observation satisfies \(|z_j - m| > 3s\) for the frozen moments \((m, s)\). Then every later observation is rejected and the reported \(\mu\) never changes.</p>
+      <p class="proof"><em>proof</em>A rejected update leaves \((m, s, \hat x, P)\) unchanged by construction, and the feedback loop only runs on accepted updates. The gate condition at step \(j+1\) is therefore evaluated against the same \((m, s)\) as at step \(j\). By induction no observation after the shift is accepted. ∎</p>
+    </div>
+    <p>The condition is easy to meet. A user with regular cycles drives \(s\) down to about 1.5 to 2 days, so any lasting change of more than about five or six days, such as coming off hormonal contraception, can lock the model permanently.</p>
+
+    <div class="stats" id="lockstats">
+      <div class="stat"><b id="ls-1">·</b><span>of users with a level shift locked out for their final 8 cycles, as written</span></div>
+      <div class="stat"><b id="ls-2">·</b><span>of the same users if the feedback loop had persisted as intended</span></div>
+      <div class="stat"><b id="ls-3">·</b><span>of all users in the contaminated cohort</span></div>
+    </div>
+
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 4 &nbsp;three simulated users, cycle by cycle</span>
+        <span class="seg" id="exsw"><button data-e="shift" class="on">level shift</button><button data-e="regular">regular</button><button data-e="long">long cycles</button></span></div>
+      <svg id="traj" viewBox="0 0 860 330" role="img" aria-label="Forecasts against truth for one simulated user"></svg>
+      <div class="legend mono"><span><i class="sw" style="background:var(--sage-deep)"></i>true level</span><span><i class="sw" style="background:var(--powder);height:6px;width:6px;border-radius:50%"></i>observed, accepted</span><span>× observed, rejected by gate</span><span><i class="sw dash"></i>production μ</span><span><i class="sw area" style="background:var(--lavender)"></i>robust 80% interval</span></div>
+    </div>
+    <p class="cap" id="trajcap"><b>Figure 4.</b> Forecasts issued before each cycle. Exported from the experiment run, not recomputed in the browser.</p></div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="n">§5</span>An exact Bayesian replacement</h2>
+    <p>The replacement keeps the random-walk level but stops pretending the noise is Gaussian and known. Each observation comes from a three-part mixture,</p>
+    <div class="eq">$$p(z \mid x, s) = (1-\pi_m-\pi_\ell)\,\mathcal N(z;\,x,\,s^2) \;+\; \pi_m\,\mathcal N(z;\,2x,\,2s^2) \;+\; \pi_\ell\,\mathrm{ExGauss}(z;\,x,\,s,\,\tau),$$</div>
+    <p>an ordinary cycle, a missed log that merges two cycles, and an occasional long cycle with an exponential tail (\(\pi_m = 0.05,\ \pi_\ell = 0.04,\ \tau = 10\) days). The noise scale \(s\) and the drift variance \(q\) are unknown per user and are learned jointly with the level.</p>
+    <p>Because the state is low-dimensional, the posterior can be computed exactly on a grid instead of approximated. The grid has 225 level values at 0.25-day spacing, 14 noise scales and 4 drift variances, which is 12,600 states. One filter step is four dense 225 × 225 matrix products for the drift, followed by a pointwise multiplication by the likelihood. Nothing is ever discarded, so there is no gate to lock.</p>
+    <p>The predictive distribution is integrated onto whole days. That gives an interval, a median forecast, and a proper hazard,</p>
+    <div class="eq">$$h(d) = \frac{p(T = d)}{P(T \ge d)},\qquad p(T = d \mid T > t) = \frac{p(T = d)}{P(T > t)}\ \ (d > t),$$</div>
+    <p>which is what a user mid-cycle actually wants to know. The shipped "hazard" endpoint returned a normalised Gaussian over day offsets. That is a probability mass function rather than a hazard, and it ignored the days already elapsed.</p>
+  </section>
+
+  <section id="s6">
+    <h2><span class="n">§6</span>Results</h2>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">table 1 &nbsp;all forecasts, 24 cycles × 2,000 users per cohort</span>
+        <span class="seg" data-cohort-switch><button data-c="main/as_written" class="on">contaminated</button><button data-c="clean/as_written">clean</button><button data-c="misspecified/as_written">misspecified</button></span></div>
+      <table class="res" id="restab"></table>
+    </div>
+    <p class="cap"><b>Table 1.</b> MAE of the point forecast in days. Coverage of the nominal 80% interval. Mean interval width in days. CRPS and log score of the full predictive distribution, both proper scoring rules<sup class="r"><a href="#refs">[6]</a></sup>, lower is better. Bold marks the best value in each column, and for coverage the value closest to 0.80.</p></div>
+
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 5 &nbsp;randomised PIT histograms</span><span class="mono" id="pit-c">·</span></div>
+      <svg id="pit" viewBox="0 0 860 210" role="img" aria-label="PIT histograms for three models"></svg>
+    </div>
+    <p class="cap"><b>Figure 5.</b> Probability integral transform of each observation under its forecast, randomised for discrete outcomes<sup class="r"><a href="#refs">[7]</a></sup>. A calibrated forecast gives a flat histogram (line). Mass piling up at the right edge means real cycles landed beyond the forecast's upper tail.</p></div>
+
+    <h3>Reading the results honestly</h3>
+    <p>Under contamination the robust filter wins on every proper score, and the log score gap is large because the Gaussian forecast assigns almost no probability to merged or long cycles. Its point accuracy gain is small, about 0.1 days.</p>
+    <p>Two results go against it. On clean data it over-covers, about 0.92 instead of 0.80, because it keeps paying for contamination that is not there and because equal-tailed intervals on whole days are conservative. And removing the gate without a robust likelihood, the "minimal fix", is worse than production under contamination. The gate was doing real work. The problem was only that it could never reopen.</p>
+    <p>On daily "does it start today?" forecasts over each user's final cycle, the proper hazard scores a Brier score of <span id="br-g">·</span> against <span id="br-p">·</span> for the shipped pmf.</p>
+  </section>
+
+  <section id="s7">
+    <h2><span class="n">§7</span>A feedback loop that never saved</h2>
+    <p>The hit-rate loop that retunes \(\alpha\) and the interval scale \(c\) is written correctly in isolation. The bug is in the order of persistence.</p>
+<pre><span class="c">// PredictionModelService.updateOnNewPeriod(userId, start)</span>
+state = stateService.getOrCreate(userId)          <span class="c">// copy A loaded</span>
+autoEvaluator.evaluateOnActualStart(userId, start)
+    s = modelStateService.getOrCreate(userId)     <span class="c">// copy B loaded</span>
+    s.params.alpha = tuned;  s.sigmaScale = tuned
+    modelStateService.save(s)                     <span class="c">// B written</span>
+... update estimators on copy A ...
+stateService.save(state)                          <span class="c">// A written, B's tuning overwritten</span></pre>
+    <p>Spring Data's MongoDB <code>save()</code> replaces the whole document, so the stale copy wins every time and the tuned values are lost. The port reproduces both behaviours. As written, coverage under contamination is 0.749. Had the loop persisted, it would have been 0.763. This finding comes from reading the code and simulating it, not from observing the running service.</p>
+  </section>
+
+  <section id="s8">
+    <h2><span class="n">§8</span>Limitations and next steps</h2>
+    <p>Every number here depends on a synthetic generator whose parameters are my assumptions, not literature estimates. The direction of the findings in §2, §3, §4 and §7 does not depend on them, since those follow from the algebra or the code. Their size does.</p>
+    <p>The robust model's contamination rates are fixed. Learning them, together with the noise prior, by empirical Bayes across users should remove the clean-data over-coverage. That is the next step. After it comes validation on a licensed public cycle dataset, and then phase two of this line of work, parallel-in-time smoothing on the GPU, where the Kalman recursion above becomes an associative scan<sup class="r"><a href="#refs">[8]</a></sup>.</p>
+  </section>
+
+  <section id="s9">
+    <h2><span class="n">§9</span>Reproduce</h2>
+<pre>git clone https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io
+cd ramanjitsingh-hub.github.io/investigations/01-femora-predictor
+pip install numpy scipy pytest
+python -m pytest -q                <span class="c"># 7 tests</span>
+python run_experiments.py          <span class="c"># writes results/summary.json, figdata.json</span>
+python export_site_data.py         <span class="c"># copies the numbers this page renders</span></pre>
+    <p>Seeds are fixed, so a rerun reproduces every number on this page. Figure 1 and the homepage figures are computed live in the browser. Every other figure renders <code>site/data/inv01.json</code>, which is exported from the run and never edited by hand.</p>
+  </section>
+
+  <section id="refs">
+    <h2><span class="n">·</span>References</h2>
+    <ol class="refs">
+      <li><span><i>R. E. Kalman.</i> A new approach to linear filtering and prediction problems. Journal of Basic Engineering 82(1), 35–45, 1960.</span></li>
+      <li><span><i>H. E. Rauch, F. Tung, C. T. Striebel.</i> Maximum likelihood estimates of linear dynamic systems. AIAA Journal 3(8), 1445–1450, 1965.</span></li>
+      <li><span><i>J. F. Muth.</i> Optimal properties of exponentially weighted forecasts. Journal of the American Statistical Association 55(290), 299–306, 1960.</span></li>
+      <li><span><i>A. C. Harvey.</i> Forecasting, Structural Time Series Models and the Kalman Filter. Cambridge University Press, 1989.</span></li>
+      <li><span><i>S. Särkkä, L. Svensson.</i> Bayesian Filtering and Smoothing, 2nd ed. Cambridge University Press, 2023.</span></li>
+      <li><span><i>T. Gneiting, A. E. Raftery.</i> Strictly proper scoring rules, prediction, and estimation. Journal of the American Statistical Association 102(477), 359–378, 2007.</span></li>
+      <li><span><i>C. Czado, T. Gneiting, L. Held.</i> Predictive model assessment for count data. Biometrics 65(4), 1254–1261, 2009.</span></li>
+      <li><span><i>S. Särkkä, Á. F. García-Fernández.</i> Temporal parallelization of Bayesian smoothers. IEEE Transactions on Automatic Control 66(1), 299–306, 2021.</span></li>
+      <li><span><i>G. W. Brier.</i> Verification of forecasts expressed in terms of probability. Monthly Weather Review 78(1), 1–3, 1950.</span></li>
+      <li><span><i>J. R. A. Bull et al.</i> Real-world menstrual cycle characteristics of more than 600,000 menstrual cycles. npj Digital Medicine 2, 83, 2019.</span></li>
+    </ol>
+  </section>
+
+  </article>
+</div></main>
+
+<footer><div class="wrap grid mono">
+  <span class="c1">Ramanjit Singh · Phagwara, Punjab</span>
+  <span class="c2"><a href="mailto:hackit830@gmail.com">hackit830@gmail.com</a> · <a href="https://www.linkedin.com/in/ramanjitsingh1">linkedin.com/in/ramanjitsingh1</a> · <a href="https://github.com/ramanjitsingh-hub">github</a></span>
+  <span class="c3">Every figure is computed, none is drawn.</span>
+</div></footer>
+
+<script src="../assets/filter.js"></script>
+<script>
+const C={ink:"#1D1E20",graphite:"#5B5E63",faint:"#8A8C8F",rule:"#DCD8CF",stone:"#EBE8E1",lav:"#9D93C8",lavD:"#6F64A8",powder:"#9FBCD6",sage:"#A3B59B",sageD:"#6E8565"};
+const NS="http://www.w3.org/2000/svg";
+function mk(svg,n,a,t){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(t!=null)e.textContent=t;svg.append(e);return e;}
+function txt(svg,x,y,t,o={}){return mk(svg,"text",Object.assign({x,y,"font-size":11,fill:C.faint,"font-family":"Geist Mono"},o),t);}
+function axes(svg,{W,H,L,R,T,B,x0,x1,y0,y1,xt,yt,xl,yl,ylog,yfmt}){
+  const sx=x=>L+(x-x0)/(x1-x0)*(W-L-R);
+  const f=ylog?Math.log10:(v=>v);const sy=y=>T+(1-(f(y)-f(y0))/(f(y1)-f(y0)))*(H-T-B);
+  yt.forEach(v=>{mk(svg,"line",{x1:L,x2:W-R,y1:sy(v),y2:sy(v),stroke:C.stone});txt(svg,L-8,sy(v)+4,yfmt?yfmt(v):v,{"text-anchor":"end"});});
+  xt.forEach(v=>txt(svg,sx(v),H-B+18,v,{"text-anchor":"middle"}));
+  mk(svg,"line",{x1:L,x2:W-R,y1:H-B,y2:H-B,stroke:C.rule});
+  if(xl)txt(svg,W-R,H-4,xl,{"text-anchor":"end"});
+  if(yl)txt(svg,L,T-10,yl);
+  return {sx,sy};
+}
+const poly=(pts)=>pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+
+/* fig 1: cobweb + gain, live */
+(function(){
+  const cob=document.getElementById("cob"),gain=document.getElementById("gain"),qi=document.getElementById("q"),ri=document.getElementById("r");
+  function draw(){
+    const q=Math.exp(+qi.value),r=Math.exp(+ri.value),ss=RF.steady(q,r);
+    document.getElementById("qv").textContent=q.toFixed(3);document.getElementById("rv").textContent=r.toFixed(3);
+    document.getElementById("k-read").textContent=`K∞ = ${ss.K.toFixed(4)} · P∞ = ${ss.P.toFixed(3)}`;
+    cob.innerHTML="";const Pm=Math.max(10,ss.P*2.2);
+    const a=axes(cob,{W:420,H:340,L:40,R:10,T:24,B:30,x0:0,x1:Pm,y0:0,y1:Pm,xt:[0,Pm/2,Pm].map(v=>+v.toFixed(1)),yt:[0,Pm/2,Pm].map(v=>+v.toFixed(1)),xl:"P_{k−1}",yl:"P_k"});
+    mk(cob,"line",{x1:a.sx(0),y1:a.sy(0),x2:a.sx(Pm),y2:a.sy(Pm),stroke:C.faint,"stroke-dasharray":"3 4"});
+    const pts=[];for(let i=0;i<=160;i++){const p=Pm*i/160;pts.push([a.sx(p),a.sy(RF.riccati(p,q,r))]);}
+    mk(cob,"path",{d:poly(pts),fill:"none",stroke:C.ink,"stroke-width":1.5});
+    let P=Math.min(9,Pm*.95);const w=[[a.sx(P),a.sy(0)]];
+    for(let k=0;k<16;k++){const n=RF.riccati(P,q,r);w.push([a.sx(P),a.sy(n)],[a.sx(n),a.sy(n)]);P=n;}
+    mk(cob,"path",{d:poly(w),fill:"none",stroke:C.lav,"stroke-width":1.2});
+    mk(cob,"circle",{cx:a.sx(ss.P),cy:a.sy(ss.P),r:3.5,fill:C.lavD});
+    txt(cob,a.sx(ss.P)+8,a.sy(ss.P)+14,"P∞",{fill:C.lavD});
+    gain.innerHTML="";
+    const b=axes(gain,{W:340,H:340,L:40,R:10,T:24,B:30,x0:1,x1:20,y0:0,y1:1,xt:[1,5,10,15,20],yt:[0,.25,.5,.75,1],xl:"cycle k",yl:"K_k"});
+    mk(gain,"line",{x1:b.sx(1),x2:b.sx(20),y1:b.sy(.3),y2:b.sy(.3),stroke:C.graphite,"stroke-dasharray":"4 3"});
+    txt(gain,b.sx(20),b.sy(.3)-6,"α = 0.3",{"text-anchor":"end",fill:C.graphite});
+    let PP=9;const g=[];for(let k=1;k<=20;k++){const M=PP+q,K=M/(M+r);PP=(1-K)*M;g.push([b.sx(k),b.sy(K)]);}
+    mk(gain,"path",{d:poly(g),fill:"none",stroke:C.lavD,"stroke-width":1.5});
+    g.forEach(p=>mk(gain,"circle",{cx:p[0],cy:p[1],r:2.2,fill:C.lavD}));
+  }
+  qi.oninput=draw;ri.oninput=draw;draw();
+})();
+
+let D=null,cohort="main/as_written",example="shift";
+const NAMES={production:"production",minimal_fix:"minimal fix",grid_bayes:"robust grid filter"};
+
+function drawGap(){
+  const svg=document.getElementById("gap");svg.innerHTML="";
+  const v=D.kf_vs_ewma.mean_abs_diff_kf_vs_ewma_by_cycle;
+  const a=axes(svg,{W:640,H:230,L:46,R:10,T:20,B:30,x0:1,x1:v.length,y0:.005,y1:2,ylog:true,xt:[1,4,8,12,16,20,24],yt:[.01,.1,1],yfmt:v=>v+" d",xl:"cycle k"});
+  const pts=v.map((y,i)=>[a.sx(i+1),a.sy(Math.max(y,.005))]);
+  mk(svg,"path",{d:poly(pts),fill:"none",stroke:C.lavD,"stroke-width":1.5});
+  pts.forEach(p=>mk(svg,"circle",{cx:p[0],cy:p[1],r:2.2,fill:C.lavD}));
+}
+
+function drawCov(){
+  const svg=document.getElementById("cov");svg.innerHTML="";const c=D.cohorts[cohort];
+  const a=axes(svg,{W:860,H:280,L:46,R:10,T:20,B:30,x0:1,x1:24,y0:.5,y1:1,xt:[1,4,8,12,16,20,24],yt:[.5,.6,.7,.8,.9,1],xl:"cycle k"});
+  mk(svg,"line",{x1:a.sx(1),x2:a.sx(24),y1:a.sy(.8),y2:a.sy(.8),stroke:C.sage,"stroke-width":1.5});
+  const sty={production:{stroke:C.graphite,"stroke-dasharray":"4 3"},minimal_fix:{stroke:C.faint},grid_bayes:{stroke:C.lavD,"stroke-width":1.8}};
+  for(const m of ["minimal_fix","production","grid_bayes"]){
+    const pts=c[m].coverage_by_cycle.map((y,i)=>[a.sx(i+1),a.sy(Math.max(.5,y))]);
+    mk(svg,"path",Object.assign({d:poly(pts),fill:"none","stroke-width":1.4},sty[m]));
+  }
+}
+
+function drawTable(){
+  const c=D.cohorts[cohort],t=document.getElementById("restab");
+  const cols=[["mae_days","MAE",2,"min"],["coverage_80","coverage",3,"near"],["mean_interval_width_days","width",2,null],["crps","CRPS",3,"min"],["log_score","log score",3,"min"]];
+  const ms=["production","minimal_fix","grid_bayes"];
+  let h="<tr><th>model</th>"+cols.map(x=>`<th>${x[1]}</th>`).join("")+"</tr>";
+  const best={};cols.forEach(([k,,,rule])=>{if(!rule)return;const vals=ms.map(m=>c[m][k]);best[k]=rule==="min"?Math.min(...vals):vals.reduce((b,v)=>Math.abs(v-.8)<Math.abs(b-.8)?v:b);});
+  ms.forEach(m=>{h+=`<tr><td>${NAMES[m]}</td>`+cols.map(([k,,d])=>{const v=c[m][k];return `<td class="${best[k]===v?"best":""}">${v.toFixed(d)}</td>`;}).join("")+"</tr>";});
+  t.innerHTML=h;
+}
+
+function drawPit(){
+  const svg=document.getElementById("pit");svg.innerHTML="";const c=D.cohorts[cohort];
+  const ms=["production","minimal_fix","grid_bayes"],w=860/3;
+  ms.forEach((m,j)=>{
+    const h=c[m].pit_hist,tot=h.reduce((a,b)=>a+b,0),dens=h.map(v=>v/tot*h.length),ymax=3;
+    const x0=j*w+30,x1=(j+1)*w-14,T=24,B=186,bw=(x1-x0)/h.length;
+    txt(svg,x0,14,NAMES[m],{fill:C.ink});
+    dens.forEach((d,i)=>{const hh=Math.min(d,ymax)/ymax*(B-T);mk(svg,"rect",{x:x0+i*bw+.5,y:B-hh,width:bw-1,height:hh,fill:m==="grid_bayes"?C.lav:C.faint,opacity:m==="grid_bayes"?.75:.45});});
+    const y1=B-(1/ymax)*(B-T);mk(svg,"line",{x1:x0,x2:x1,y1,y2:y1,stroke:C.sageD,"stroke-width":1.2});
+    mk(svg,"line",{x1:x0,x2:x1,y1:B,y2:B,stroke:C.rule});
+    txt(svg,x0,B+16,"0");txt(svg,x1,B+16,"1",{"text-anchor":"end"});
+  });
+  document.getElementById("pit-c").textContent={"main/as_written":"contaminated cohort","clean/as_written":"clean cohort","misspecified/as_written":"misspecified cohort"}[cohort];
+}
+
+function drawTraj(){
+  const svg=document.getElementById("traj");svg.innerHTML="";const e=D.examples[example];const n=e.obs.length;
+  const all=[...e.obs,...e.gb_lo,...e.gb_hi,...e.latent,...e.prod_mu];
+  const lo=Math.max(10,Math.floor(Math.min(...all)/5)*5-2),hi=Math.min(70,Math.ceil(Math.max(...all.filter(v=>v<70)))+3);
+  const yt=[];for(let v=Math.ceil(lo/5)*5;v<=hi;v+=5)yt.push(v);
+  const a=axes(svg,{W:860,H:330,L:46,R:10,T:20,B:30,x0:.5,x1:n+.5,y0:lo,y1:hi,xt:[1,4,8,12,16,20,24],yt,yfmt:v=>v+" d",xl:"cycle k"});
+  const band=[];for(let i=0;i<n;i++)band.push([a.sx(i+1),a.sy(Math.min(hi,e.gb_hi[i]))]);for(let i=n-1;i>=0;i--)band.push([a.sx(i+1),a.sy(Math.max(lo,e.gb_lo[i]))]);
+  mk(svg,"path",{d:poly(band)+"Z",fill:C.lav,opacity:.22});
+  mk(svg,"path",{d:poly(e.gb_med.map((y,i)=>[a.sx(i+1),a.sy(y)])),fill:"none",stroke:C.lavD,"stroke-width":1.2,opacity:.8});
+  mk(svg,"path",{d:poly(e.latent.map((y,i)=>[a.sx(i+1),a.sy(y)])),fill:"none",stroke:C.sageD,"stroke-width":1.6});
+  mk(svg,"path",{d:poly(e.prod_mu.map((y,i)=>[a.sx(i+1),a.sy(y)])),fill:"none",stroke:C.graphite,"stroke-width":1.4,"stroke-dasharray":"4 3"});
+  e.obs.forEach((z,i)=>{const x=a.sx(i+1),y=a.sy(Math.min(z,hi-.5));
+    if(!e.accepted[i]){mk(svg,"path",{d:`M${x-4},${y-4}L${x+4},${y+4}M${x+4},${y-4}L${x-4},${y+4}`,stroke:C.ink,"stroke-width":1.2});}
+    else mk(svg,"circle",{cx:x,cy:y,r:3.6,fill:C.powder,stroke:"#7FA3C4","stroke-width":.8});
+    if(z>hi)txt(svg,x,a.sy(hi)+12,"↑"+z,{"text-anchor":"middle"});});
+  const m=e.meta,rej=e.accepted.filter(v=>!v).length;
+  const cap={shift:`a level shift of ${m.shift.toFixed(1)} days at cycle ${m.shift_at+1}. The production gate rejects ${rej} of 24 cycles and its forecast stays at ${e.prod_mu[n-1].toFixed(1)} days for the rest of the sequence. The robust filter moves within two cycles.`,
+    regular:`a regular user (true sd ${m.sigma} d). Here the two models agree closely, which is the case the production system was built for.`,
+    long:`a user in the long-cycle subgroup with a self-reported length of ${m.self_report} days. Both models track the level, the robust interval is wider in the early cycles while it learns the noise scale.`}[example];
+  document.getElementById("trajcap").innerHTML=`<b>Figure 4.</b> Forecasts issued before each cycle for ${cap} Exported from the experiment run, not recomputed in the browser.`;
+}
+
+function drawCohort(){drawCov();drawTable();drawPit();}
+document.querySelectorAll("[data-cohort-switch]").forEach(sw=>sw.addEventListener("click",ev=>{
+  const b=ev.target.closest("button");if(!b)return;cohort=b.dataset.c;
+  document.querySelectorAll("[data-cohort-switch] button").forEach(x=>x.classList.toggle("on",x.dataset.c===cohort));drawCohort();}));
+document.getElementById("exsw").addEventListener("click",ev=>{const b=ev.target.closest("button");if(!b)return;example=b.dataset.e;
+  document.querySelectorAll("#exsw button").forEach(x=>x.classList.toggle("on",x===b));drawTraj();});
+
+fetch("../data/inv01.json").then(r=>r.json()).then(d=>{
+  D=d;
+  document.getElementById("m-rt").textContent=d.meta.runtime_s+" s, one CPU core";
+  document.getElementById("m-env").textContent=`Python ${d.meta.python} · NumPy ${d.meta.numpy}`;
+  const L=d.cohorts["main/as_written"].lockout,L2=d.cohorts["main/as_intended"].lockout;
+  const pct=v=>(v*100).toFixed(1)+"%";
+  document.getElementById("ls-1").textContent=pct(L.fraction_with_level_shift);
+  document.getElementById("ls-2").textContent=pct(L2.fraction_with_level_shift);
+  document.getElementById("ls-3").textContent=pct(L.fraction_all_users);
+  const br=d.cohorts["main/as_written"].brier;
+  document.getElementById("br-g").textContent=br.grid_bayes.toFixed(4);document.getElementById("br-p").textContent=br.production.toFixed(4);
+  drawGap();drawCohort();drawTraj();
+});
+
+document.addEventListener("DOMContentLoaded",()=>{
+  const go=()=>window.renderMathInElement?renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:true},{left:"\\(",right:"\\)",display:false}]}):setTimeout(go,50);go();
+});
+addEventListener("scroll",()=>document.getElementById("nav").classList.toggle("solid",scrollY>20),{passive:true});
+const links=[...document.querySelectorAll("#toc a")];
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)links.forEach(l=>l.classList.toggle("on",l.getAttribute("href")==="#"+e.target.id));}),{rootMargin:"-40% 0px -55% 0px"});
+document.querySelectorAll("article section").forEach(s=>io.observe(s));
+</script>
+</body>
+</html>
