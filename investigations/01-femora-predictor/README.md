@@ -1,6 +1,8 @@
 # 01. Re-deriving a production cycle predictor
 
-**Status. In progress.** Synthetic-data study complete. Real-data validation not started (needs a licensed public dataset). Nothing here uses FemoraAI user data.
+**Status. In progress.** Synthetic-data study complete.
+
+**Data note.** The production model studied here ran in FemoraAI on real users' data. Every result in this investigation is computed on synthetic data with known ground truth. No FemoraAI user data is used or published.
 
 ## Question
 What does the cycle predictor shipped in FemoraAI's CycleService (Java, Aug 2025) actually estimate, where does it fail, and what does a principled replacement buy?
