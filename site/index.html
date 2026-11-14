@@ -4,113 +4,156 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ramanjit Singh</title>
-<meta name="description" content="Computational research notebook of Ramanjit Singh. Estimation, numerical simulation and GPU systems.">
+<meta name="description" content="Ramanjit Singh, computer science engineer and co-founder of FemoraAI and Luna. Products, research investigations and a live fluid simulation running on your GPU.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ivory:#F6F4EF;--stone:#EBE8E1;--rule:#DCD8CF;--charcoal:#1D1E20;--graphite:#5B5E63;--faint:#8A8C8F;
-  --lavender:#9D93C8;--powder:#9FBCD6;--sage:#A3B59B;
+  --ivory:#F6F4EF;--paper:#FBFAF7;--stone:#EBE8E1;--rule:#DCD8CF;--charcoal:#1D1E20;--graphite:#5B5E63;--faint:#8A8C8F;
+  --lavender:#9D93C8;--lavender-deep:#6F64A8;--powder:#9FBCD6;--sage:#A3B59B;
   --sans:"Geist",ui-sans-serif,system-ui,sans-serif;--mono:"Geist Mono",ui-monospace,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:var(--ivory);color:var(--charcoal);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{background:var(--ivory);color:var(--charcoal);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 .mono{font-family:var(--mono);font-size:11.5px;letter-spacing:.02em;color:var(--graphite)}
 .wrap{max-width:1320px;margin:0 auto;padding:0 32px}
 .grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px}
-
-/* nav */
-nav{position:fixed;inset:0 0 auto 0;z-index:10;padding:22px 0;transition:background .4s}
-nav.solid{background:rgba(246,244,239,.86);backdrop-filter:blur(10px)}
-nav .grid{align-items:baseline}
-nav .who{grid-column:1/5;font-size:14px;font-weight:500}
-nav .links{grid-column:5/10;display:flex;gap:28px;font-size:14px;color:var(--graphite)}
-nav .links a:hover{color:var(--charcoal)}
-nav .rev{grid-column:10/13;text-align:right}
-
-/* hero */
-.hero{position:relative;height:100vh;min-height:680px;overflow:hidden}
-#fluid{position:absolute;inset:0;width:100%;height:100%;display:block;filter:blur(1.5px) saturate(.95)}
-.hero .wrap{position:relative;height:100%;pointer-events:none}
-.hero-text{position:absolute;left:32px;top:max(110px,19vh);max-width:780px}
-.hero .kicker{margin-bottom:28px}
-h1{font-weight:300;font-size:clamp(40px,5.6vw,82px);line-height:1.02;letter-spacing:-.035em}
-h1 span{color:var(--graphite)}
-.hero p.sub{margin-top:30px;max-width:460px;font-size:16.5px;color:var(--graphite)}
-.annot{position:absolute;right:32px;bottom:44px;width:350px;pointer-events:none}
-.annot .eq{font-family:var(--sans);font-size:15px;color:var(--charcoal);margin:6px 0 12px;letter-spacing:0}
-.annot .eq i{font-style:italic}
-.annot dl{display:grid;grid-template-columns:1fr auto;gap:3px 12px;border-top:1px solid var(--rule);padding-top:10px}
-.annot dd{text-align:right;color:var(--charcoal);font-feature-settings:"tnum"}
-.hint{position:absolute;left:32px;bottom:44px}
 .tick{display:inline-block;width:18px;height:1px;background:var(--graphite);vertical-align:middle;margin-right:10px}
+.ul{border-bottom:1px solid var(--rule);transition:border-color .2s}
+.ul:hover{border-color:var(--charcoal)}
 
-/* sections */
-section.s{padding:140px 0 40px}
-.label{grid-column:1/4;padding-top:10px}
+nav{position:fixed;inset:0 0 auto 0;z-index:10;padding:20px 0;transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
+nav.solid{background:rgba(246,244,239,.9);backdrop-filter:blur(10px);border-bottom-color:var(--rule)}
+nav .grid{align-items:baseline}
+nav .who{grid-column:1/4;font-size:14px;font-weight:500}
+nav .links{grid-column:4/11;display:flex;gap:26px;font-size:14px;color:var(--graphite)}
+nav .links a:hover{color:var(--charcoal)}
+nav .rev{grid-column:11/13;text-align:right}
+
+/* about */
+.about{min-height:100vh;display:flex;align-items:center;padding:120px 0 70px}
+.about .grid{align-items:end;width:100%}
+.about .left{grid-column:1/9}
+.about h1{font-weight:300;font-size:clamp(38px,4.6vw,68px);line-height:1.02;letter-spacing:-.035em}
+.about h1 span{color:var(--graphite)}
+.about .intro{margin-top:34px;font-size:clamp(18px,1.5vw,21px);font-weight:300;line-height:1.55;max-width:600px}
+.about .intro p+p{margin-top:14px}
+.cta{display:flex;gap:26px;flex-wrap:wrap;margin-top:36px;font-size:15px}
+.cta a{border-bottom:1px solid var(--charcoal);padding-bottom:2px}
+.cta a.soft{border-color:var(--rule);color:var(--graphite)}
+.glance{grid-column:10/13;border-top:1px solid var(--charcoal)}
+.glance div{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--rule);font-size:14.5px}
+.glance dt{font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:3px}
+.glance dd b{font-weight:500}
+
+/* generic sections */
+section.s{padding:120px 0 20px}
+.label{grid-column:1/4;padding-top:6px}
 .label .n{font-family:var(--mono);font-size:11.5px;color:var(--graphite)}
 .label h2{font-weight:400;font-size:15px;margin-top:6px}
+.lead{grid-column:4/11;font-size:clamp(22px,2.2vw,30px);font-weight:300;line-height:1.3;letter-spacing:-.015em}
+.lead span{color:var(--graphite)}
 
-/* investigation 01 */
-.inv1{grid-column:1/13;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px;margin-top:56px;align-items:start}
-.inv1 .text{grid-column:1/5}
-.num{font-weight:300;font-size:120px;line-height:.8;letter-spacing:-.06em;color:var(--charcoal)}
-.inv1 h3{font-weight:400;font-size:30px;line-height:1.15;letter-spacing:-.02em;margin-top:34px}
-.status{display:inline-flex;align-items:center;gap:8px;margin-top:18px}
+/* what I do */
+.doing{grid-column:4/13;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:44px}
+.doing a{display:block;border-top:1px solid var(--charcoal);padding-top:14px;transition:border-color .2s}
+.doing a:hover{border-top-color:var(--lavender-deep)}
+.doing .k{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.doing h3{font-weight:400;font-size:22px;letter-spacing:-.015em;margin:10px 0 8px}
+.doing p{font-size:15px;color:var(--graphite)}
+.doing .go{display:block;margin-top:14px;font-size:13px;color:var(--charcoal)}
+
+/* work */
+.work{grid-column:4/13;margin-top:40px}
+.job{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,1.1fr);column-gap:24px;padding:26px 0;border-top:1px solid var(--rule);align-items:baseline}
+.job:last-child{border-bottom:1px solid var(--rule)}
+.job .when{font-family:var(--mono);font-size:11.5px;color:var(--graphite)}
+.job h3{font-weight:400;font-size:22px;letter-spacing:-.015em}
+.job .role{font-size:14px;color:var(--graphite);margin-top:2px}
+.job .plain{font-size:16px}
+.job .tech{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.6}
+
+/* recognition */
+.rec{grid-column:4/13;display:grid;grid-template-columns:repeat(3,1fr);gap:0 24px;margin-top:40px}
+.rec div{border-top:1px solid var(--rule);padding:16px 0 20px}
+.rec b{display:block;font-weight:400;font-size:17px;letter-spacing:-.01em}
+.rec span{font-size:14px;color:var(--graphite)}
+
+/* research */
+.inv{grid-column:4/13;margin-top:46px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px;align-items:start;padding-bottom:56px;border-bottom:1px solid var(--rule)}
+.inv + .inv{margin-top:56px}
+.inv .text{grid-column:1/6}
+.inv .num{font-weight:300;font-size:88px;line-height:.8;letter-spacing:-.06em}
+.inv h3{font-weight:400;font-size:27px;line-height:1.15;letter-spacing:-.02em;margin-top:26px}
+.status{display:inline-flex;align-items:center;gap:8px;margin-top:14px}
 .status i{width:7px;height:7px;border-radius:50%;background:var(--lavender)}
-.inv1 p.q{margin-top:22px;color:var(--graphite);font-size:16px}
-.facts{margin-top:34px;border-top:1px solid var(--rule)}
-.facts div{display:grid;grid-template-columns:96px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--rule);align-items:baseline}
-.facts b{font-weight:300;font-size:28px;letter-spacing:-.03em;font-feature-settings:"tnum"}
-.facts span{font-size:14px;color:var(--graphite)}
-.more{display:inline-block;margin-top:28px;font-size:14px;border-bottom:1px solid var(--charcoal);padding-bottom:2px}
-.inv1 .figure{grid-column:6/13;position:sticky;top:110px}
-.card{background:#FBFAF7;border:1px solid var(--rule);border-radius:2px;padding:22px 22px 16px}
+.inv .plain{margin-top:18px;font-size:16.5px}
+.inv .techline{margin-top:12px;font-size:14.5px;color:var(--graphite)}
+.facts{margin-top:22px;border-top:1px solid var(--rule)}
+.facts div{display:grid;grid-template-columns:110px 1fr;gap:14px;padding:11px 0;border-bottom:1px solid var(--rule);align-items:baseline}
+.facts b{font-weight:300;font-size:25px;letter-spacing:-.03em;font-feature-settings:"tnum"}
+.facts span{font-size:13.5px;color:var(--graphite)}
+.more{display:inline-block;margin-top:22px;font-size:14px;border-bottom:1px solid var(--charcoal);padding-bottom:2px}
+.inv .side{grid-column:7/13}
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:2px;padding:20px 20px 14px}
 .card svg{display:block;width:100%;height:auto}
 .fig-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
-.legend{display:flex;gap:20px;flex-wrap:wrap;margin-top:12px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px}
 .sw{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:7px}
 .ctl{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:12px;border-top:1px solid var(--rule);gap:12px;flex-wrap:wrap}
 .ctl button{font:inherit;background:none;border:0;color:var(--charcoal);cursor:pointer;margin-left:16px;padding:0}
-.ctl button:hover{color:var(--lavender)}
-.cap{margin-top:14px;font-size:13.5px;color:var(--graphite);max-width:620px}
-
-/* proposed */
-.prop{grid-column:4/13;margin-top:10px}
-.row{display:grid;grid-template-columns:70px minmax(0,1fr) minmax(0,1fr) 110px;column-gap:24px;padding:28px 0;border-top:1px solid var(--rule);align-items:baseline}
+.ctl button:hover{color:var(--lavender-deep)}
+.cap{margin-top:12px;font-size:13.5px;color:var(--graphite)}
+.bignum{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.bignum div{border-top:1px solid var(--charcoal);padding-top:12px}
+.bignum b{display:block;font-weight:300;font-size:52px;letter-spacing:-.04em;line-height:1}
+.bignum span{display:block;margin-top:8px;font-size:14px;color:var(--graphite)}
+.prop{grid-column:4/13;margin-top:52px}
+.prop .h{font-family:var(--mono);font-size:11.5px;color:var(--graphite);margin-bottom:12px}
+.row{display:grid;grid-template-columns:56px minmax(0,1fr) minmax(0,1.2fr) 100px;column-gap:24px;padding:20px 0;border-top:1px solid var(--rule);align-items:baseline}
 .row:last-child{border-bottom:1px solid var(--rule)}
-.row .k{font-weight:300;font-size:30px;letter-spacing:-.04em;color:var(--faint)}
-.row h4{font-weight:400;font-size:19px;letter-spacing:-.01em;line-height:1.25}
+.row .k{font-weight:300;font-size:24px;letter-spacing:-.04em;color:var(--faint)}
+.row h4{font-weight:400;font-size:17px}
 .row p{font-size:14.5px;color:var(--graphite)}
 .row .tag{text-align:right}
 
-/* about */
-.about-text{grid-column:4/9;font-size:22px;font-weight:300;line-height:1.45;letter-spacing:-.01em}
-.about-text p+p{margin-top:18px}
-.cv{grid-column:10/13;font-size:14px}
-.cv div{padding:12px 0;border-top:1px solid var(--rule)}
-.cv div:last-child{border-bottom:1px solid var(--rule)}
-.cv b{display:block;font-weight:500}
-.cv span{color:var(--graphite)}
+/* live demo */
+.demo{position:relative;height:88vh;min-height:620px;overflow:hidden;margin-top:120px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+#fluid{position:absolute;inset:0;width:100%;height:100%;display:block;filter:blur(1.5px) saturate(.95)}
+.demo .wrap{position:relative;height:100%;pointer-events:none}
+.demo .say{position:absolute;left:32px;top:72px;max-width:520px}
+.demo .say h2{font-weight:300;font-size:clamp(32px,3.6vw,52px);line-height:1.05;letter-spacing:-.03em;margin-top:18px}
+.demo .say p{margin-top:18px;font-size:16.5px;color:var(--graphite);max-width:440px}
+.annot{position:absolute;right:32px;bottom:40px;width:350px}
+.annot .eq{font-family:var(--sans);font-size:15px;letter-spacing:0;color:var(--charcoal);margin:6px 0 12px}
+.annot .eq i{font-style:italic}
+.annot dl{display:grid;grid-template-columns:1fr auto;gap:3px 12px;border-top:1px solid var(--rule);padding-top:10px}
+.annot dd{text-align:right;color:var(--charcoal);font-feature-settings:"tnum"}
 
-footer{padding:120px 0 48px}
-footer .grid{border-top:1px solid var(--rule);padding-top:22px;align-items:baseline}
-footer .c1{grid-column:1/5}footer .c2{grid-column:5/9}footer .c3{grid-column:9/13;text-align:right}
+/* contact */
+.contact{padding:140px 0 40px}
+.contact h2{grid-column:1/9;font-weight:300;font-size:clamp(40px,5.4vw,80px);line-height:1;letter-spacing:-.04em}
+.contact .ways{grid-column:1/-1;display:flex;gap:36px;flex-wrap:wrap;margin-top:36px;font-size:18px}
+.contact .ways a{border-bottom:1px solid var(--charcoal);padding-bottom:2px}
+footer{padding:80px 0 44px}
+footer .grid{border-top:1px solid var(--rule);padding-top:20px;align-items:baseline}
+footer .c1{grid-column:1/7}footer .c3{grid-column:7/13;text-align:right}
 
-@media (max-width:980px){
+@media (max-width:1000px){
   .wrap{padding:0 16px}
   nav .links{display:none}nav .who{grid-column:1/8}nav .rev{grid-column:8/13}
-  .hero-text{left:16px;right:16px;top:18vh}
-  .annot{right:16px;left:16px;width:auto;bottom:28px}
-  .hint{display:none}
-  .label,.inv1 .text,.inv1 .figure,.prop,.about-text,.cv{grid-column:1/-1}
-  .inv1 .figure{position:static;margin-top:48px}
-  .row{grid-template-columns:48px 1fr;row-gap:8px}.row p{grid-column:2}.row .tag{grid-column:2;text-align:left}
-  .about-text{font-size:19px;margin-top:24px}.cv{margin-top:36px}
-  footer .c1,footer .c2,footer .c3{grid-column:1/-1;text-align:left;margin-bottom:8px}
-  .num{font-size:88px}
+  .about .left,.glance,.label,.lead,.doing,.work,.rec,.inv,.prop,.contact h2{grid-column:1/-1}
+  .glance{margin-top:44px}
+  .lead{margin-top:14px}
+  .doing,.rec{grid-template-columns:1fr}
+  .job{grid-template-columns:1fr;row-gap:6px}
+  .inv .text,.inv .side{grid-column:1/-1}.inv .side{margin-top:34px}
+  .row{grid-template-columns:44px 1fr;row-gap:6px}.row p,.row .tag{grid-column:2}.row .tag{text-align:left}
+  .demo .say{left:16px;right:16px;top:48px}
+  .annot{left:16px;right:16px;width:auto;bottom:24px}
+  footer .c1,footer .c3{grid-column:1/-1;text-align:left;margin-bottom:6px}
 }
 </style>
 </head>
@@ -118,101 +161,170 @@ footer .c1{grid-column:1/5}footer .c2{grid-column:5/9}footer .c3{grid-column:9/1
 
 <nav id="nav"><div class="wrap grid">
   <a class="who" href="#">Ramanjit Singh</a>
-  <div class="links"><a href="#work">Investigations</a><a href="#about">About</a><a href="https://github.com/ramanjitsingh-hub">Code</a></div>
+  <div class="links"><a href="#work">Work</a><a href="#research">Research</a><a href="#live">Live demo</a><a href="#contact">Contact</a></div>
   <span class="rev mono">rev. 2026.11.14</span>
 </div></nav>
 
-<header class="hero">
+<header class="about" id="about"><div class="wrap grid">
+  <div class="left">
+    <div class="mono"><span class="tick"></span>Computer science engineer · Phagwara, Punjab</div>
+    <h1 style="margin-top:26px">Hi, I'm Ramanjit. <span>I build products, and I study the mathematics underneath them.</span></h1>
+    <div class="intro">
+      <p>I co-founded FemoraAI, a women's health app used by more than 4,600 people, and now Luna, an AI executive assistant for founders. I got my first laptop at six, broke it, and fixed it before anyone noticed. I have been taking systems apart ever since.</p>
+      <p>Today I work on software that has to make sense of messy, incomplete information, and on the maths and hardware that make it fast and trustworthy.</p>
+    </div>
+    <div class="cta"><a href="#work">What I've built</a><a href="#research">My research</a><a class="soft" href="#live">See something live</a></div>
+  </div>
+  <dl class="glance">
+    <div><dt>now</dt><dd><b>Luna</b>, co-founder</dd></div>
+    <div><dt>before</dt><dd><b>FemoraAI</b>, co-founder</dd></div>
+    <div><dt>studying</dt><dd>B.Tech, Computer Science, Lovely Professional University, 2027</dd></div>
+    <div><dt>from</dt><dd>Born in Phuket, Thailand. Raised in Punjab, India.</dd></div>
+    <div><dt>off hours</dt><dd>History, geopolitics, mythology, poetry, singing</dd></div>
+  </dl>
+</div></header>
+
+<main>
+<section class="s" style="padding-top:60px"><div class="wrap grid">
+  <div class="label"><div class="n">01</div><h2>What I do</h2></div>
+  <p class="lead">Three things, and they feed each other. <span>Building shows me which problems matter. Research tells me why my first answer was wrong. Engineering makes the better answer fast enough to use.</span></p>
+  <div class="doing">
+    <a href="#work"><span class="k">build</span><h3>I start companies</h3><p>Three so far, from a campus delivery service to an AI assistant, each one taught by real users.</p><span class="go">My work ↓</span></a>
+    <a href="#research"><span class="k">research</span><h3>I test my own systems</h3><p>I take things I have built apart mathematically, and report what I measured, including what didn't work.</p><span class="go">Research ↓</span></a>
+    <a href="#live"><span class="k">engineer</span><h3>I make it run fast</h3><p>I write code for graphics cards and measure every millisecond. One of those programs is running further down this page.</p><span class="go">Live demo ↓</span></a>
+  </div>
+</div></section>
+
+<section class="s" id="work"><div class="wrap grid">
+  <div class="label"><div class="n">02</div><h2>Work</h2></div>
+  <p class="lead">I learn by building things real people use. <span>Each company below started from a problem I saw first-hand.</span></p>
+  <div class="work">
+    <div class="job"><span class="when">Jul 2026 – now</span><div><h3>Luna</h3><div class="role">Co-founder · agent architecture, AI infrastructure, backend</div></div>
+      <div><p class="plain">An AI executive assistant that keeps track of everything a founder is juggling, so nothing important slips. Nothing is sent without the user's approval.</p>
+      <p class="tech">130,000+ lines of Python · agent kernel with a context-memory manager · hybrid memory search · 12 integrations</p></div></div>
+    <div class="job"><span class="when">Jan 2025 – Jul 2026</span><div><h3>FemoraAI</h3><div class="role">Co-founder · backend, AI inference, data infrastructure</div></div>
+      <div><p class="plain">A women's health app that learned each user's own cycle instead of assuming an average one. More than 4,600 users, with 28.5% still active after four weeks and no money spent on ads.</p>
+      <p class="tech">Per-user Kalman filter · 7 Spring Boot microservices on Kafka · led a team of 21</p></div></div>
+    <div class="job"><span class="when">Jun – Nov 2025</span><div><h3>ABN Information Technologies</h3><div class="role">Intern, junior backend developer</div></div>
+      <div><p class="plain">Built the server side of client projects, from database design to deployment.</p>
+      <p class="tech">REST APIs · authentication · cloud deployment · React Native</p></div></div>
+    <div class="job"><span class="when">Oct 2023 – Jan 2025</span><div><h3>Pink Parcel</h3><div class="role">Co-founder</div></div>
+      <div><p class="plain">Period kits delivered to six university hostels within seven minutes. Over 300 orders, and 600 conversations with customers that shaped what became FemoraAI.</p>
+      <p class="tech">Logistics software · sourcing · last-mile delivery</p></div></div>
+    <div class="job"><span class="when">2021 – 2027</span><div><h3>Lovely Professional University</h3><div class="role">B.Tech and Diploma, Computer Science and Engineering</div></div>
+      <div><p class="plain">B.Tech expected in June 2027 with a CGPA of 9.15, after a diploma with 9.33. Honoured four times at the university's Achievers Honor Ceremony.</p></div></div>
+  </div>
+</div></section>
+
+<section class="s"><div class="wrap grid">
+  <div class="label"><div class="n">03</div><h2>Recognition</h2></div>
+  <div class="rec" style="grid-column:4/13;margin-top:0">
+    <div><b>Startup Punjab grant</b><span>₹3,00,000 for FemoraAI, awarded by the Chief Minister of Punjab, 2026</span></div>
+    <div><b>Global Student Entrepreneur Awards</b><span>Winner, Punjab, with FemoraAI</span></div>
+    <div><b>SHE Cohort 4.0</b><span>Winner, Punjab State Council for Science and Technology</span></div>
+    <div><b>India AI Impact Summit 2026</b><span>Selected to exhibit FemoraAI, New Delhi</span></div>
+    <div><b>20+ media outlets</b><span>Coverage of FemoraAI, including The Tribune</span></div>
+    <div><b>IECON 2025</b><span>Winner, Indian Entrepreneurship Conclave</span></div>
+  </div>
+</div></section>
+
+<section class="s" id="research"><div class="wrap grid">
+  <div class="label"><div class="n">04</div><h2>Research</h2></div>
+  <p class="lead">Alongside building, I run investigations. <span>I pick one question, work out the maths, write the code from scratch, and publish what I measured. Status labels are literal.</span></p>
+
+  <div class="inv">
+    <div class="text">
+      <div class="num">01</div>
+      <h3>What did my own app's prediction model actually do?</h3>
+      <div class="status mono"><i></i>in progress · synthetic-data study complete</div>
+      <p class="plain">FemoraAI predicted each user's next period with a classic tracking method called a Kalman filter. I rebuilt it line by line and tested it on thousands of simulated users. It mostly worked, but one safety rule could make it stop learning for good.</p>
+      <p class="techline">Port of the production Java code, a steady-state analysis, and an exact Bayesian replacement scored with proper scoring rules.</p>
+      <div class="facts">
+        <div><b>9.1%</b><span>of simulated users whose cycle changed were locked out by that rule</span></div>
+        <div><b>0.75 → 0.85</b><span>how often the "80% likely" range really held, before and after the fix</span></div>
+      </div>
+      <p class="mono" style="margin-top:12px;font-size:11px">All results use simulated data. The original model ran on real users.</p>
+      <a class="more" href="01/">Read investigation 01 →</a>
+    </div>
+    <div class="side">
+      <div class="card">
+        <div class="fig-head"><span class="mono">live · one simulated user, cycle by cycle</span><span class="mono" id="f-k">k = 0</span></div>
+        <svg id="fig1" viewBox="0 0 640 300" role="img" aria-label="Posterior density of cycle level updating cycle by cycle"></svg>
+        <div class="legend mono">
+          <span><i class="sw" style="background:var(--lavender)"></i>new model's belief</span>
+          <span><i class="sw" style="background:var(--graphite)"></i>original model</span>
+          <span><i class="sw" style="background:var(--powder)"></i>logged cycles</span>
+        </div>
+        <div class="ctl mono"><span id="f-read">before any data</span><span><button id="b-step">step</button><button id="b-play">pause</button><button id="b-reset">reset</button></span></div>
+      </div>
+      <p class="cap">At cycle 12 this user's cycle gets eight days longer. The new model follows. The original keeps predicting the old length, because its safety rule rejects every new cycle.</p>
+    </div>
+  </div>
+
+  <div class="inv">
+    <div class="text">
+      <div class="num">02</div>
+      <h3>How fast can a laptop simulate a fluid, and still be right?</h3>
+      <div class="status mono"><i></i>in progress · three milestones complete</div>
+      <p class="plain">I wrote a program that simulates how fluids move, from scratch, for a laptop graphics card. First I proved it gives the right answer against known solutions. Then I found where its time went and made it much faster without changing a single digit of the result.</p>
+      <p class="techline">CUDA Navier–Stokes solver, multigrid pressure solve, mixed precision, shared-memory smoother, validated on the lid-driven cavity.</p>
+      <a class="more" href="02/">Read investigation 02 →</a>
+    </div>
+    <div class="side">
+      <div class="bignum">
+        <div><b>13.5×</b><span>faster on small grids after removing waiting time between GPU tasks</span></div>
+        <div><b>10⁻¹⁶</b><span>difference from an independent check, the limit of computer arithmetic</span></div>
+        <div><b>2.000</b><span>measured order of accuracy, exactly what theory predicts</span></div>
+        <div><b>60 fps</b><span>the browser version, running further down this page</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="prop">
+    <div class="h">next questions</div>
+    <div class="row"><span class="k">03</span><h4>The anatomy of a graphics card</h4><p>Small experiments that show exactly why some GPU code is fast and some is slow, measured on real hardware counters.</p><span class="tag mono">proposed</span></div>
+    <div class="row"><span class="k">04</span><h4>Can neural networks replace physics solvers?</h4><p>A fair test of neural operators against the solver from 02, counting training cost too.</p><span class="tag mono">proposed</span></div>
+    <div class="row"><span class="k">05</span><h4>The shape of learning</h4><p>Measuring the landscape a neural network moves through while it trains.</p><span class="tag mono">proposed</span></div>
+  </div>
+</div></section>
+
+<section class="demo" id="live">
   <canvas id="fluid" aria-label="Live incompressible fluid simulation"></canvas>
   <div class="wrap">
-    <div class="hero-text">
-      <div class="kicker mono"><span class="tick"></span>Computational research notebook</div>
-      <h1>Estimation under uncertainty, numerical simulation, <span>and the machines that compute them.</span></h1>
-      <p class="sub">Computer science engineer and co-founder of FemoraAI and Luna. Each investigation here is a question, a derivation, an implementation and a measured result.</p>
+    <div class="say">
+      <div class="mono"><span class="tick"></span>05 · Live demo</div>
+      <h2>This is a real fluid simulation, running on your computer right now.</h2>
+      <p>It is the solver from investigation 02, solving the equations of fluid motion many times a second. Move your mouse through it to stir the flow.</p>
     </div>
     <div class="annot mono">
       <div id="a-title">fig. 0 &nbsp;incompressible flow, live</div>
       <div class="eq">∂<sub>t</sub><i>u</i> + (<i>u</i>·∇)<i>u</i> = −∇<i>p</i> + ν∇²<i>u</i> + <i>f</i>, &nbsp; ∇·<i>u</i> = 0</div>
       <dl>
         <dt>grid</dt><dd id="a-grid">·</dd>
-        <dt id="a-k1">advection</dt><dd id="a-v1">·</dd>
+        <dt id="a-k1">time</dt><dd id="a-v1">·</dd>
         <dt id="a-k2">projection</dt><dd id="a-v2">·</dd>
         <dt>max |∇·u| after solve</dt><dd id="a-div">·</dd>
         <dt id="a-k3">step time</dt><dd id="a-ms">·</dd>
       </dl>
-      <div style="margin-top:12px"><span class="tick"></span>move the cursor to stir the flow</div>
     </div>
   </div>
-</header>
+</section>
 
-<main>
-<section class="s" id="work"><div class="wrap grid">
-  <div class="label"><div class="n">§1</div><h2>Investigations</h2></div>
-
-  <div class="inv1">
-    <div class="text">
-      <div class="num">01</div>
-      <h3>Re-deriving a production cycle predictor</h3>
-      <div class="status mono"><i></i>in progress · synthetic-data study complete</div>
-      <p class="q">I shipped a per-user Kalman filter at FemoraAI, where it ran in production on real users' cycle data. Here I port it line by line, derive what it actually estimates, and test it against an exact Bayesian replacement.</p>
-      <p class="q mono" style="font-size:12px;margin-top:14px">Data note. Every result on this page comes from synthetic data, 2,000 simulated users with known ground truth. No FemoraAI user data is shown or used here.</p>
-      <div class="facts">
-        <div><b>0.2965</b><span>steady-state Kalman gain. After about five cycles the filter is the same moving average it was blended with.</span></div>
-        <div><b>9.1%</b><span>of users whose cycle level shifted were locked out by the 3σ outlier gate for their final eight cycles.</span></div>
-        <div><b>0.75 → 0.85</b><span>empirical coverage of the nominal 80% interval, production against the robust model, under realistic contamination.</span></div>
-      </div>
-      <a class="more" href="01/">Read the investigation →</a>
-    </div>
-
-    <div class="figure">
-      <div class="card">
-        <div class="fig-head"><span class="mono">fig. 1 &nbsp;posterior over the latent cycle level</span><span class="mono" id="f-k">k = 0</span></div>
-        <svg id="fig1" viewBox="0 0 640 300" role="img" aria-label="Posterior density of cycle level updating cycle by cycle"></svg>
-        <div class="legend mono">
-          <span><i class="sw" style="background:var(--lavender)"></i>robust Bayesian filter</span>
-          <span><i class="sw" style="background:var(--graphite)"></i>production μ ± σ</span>
-          <span><i class="sw" style="background:var(--powder)"></i>observed cycle lengths</span>
-        </div>
-        <div class="ctl mono"><span id="f-read">prior, before any observation</span><span><button id="b-step">step</button><button id="b-play">pause</button><button id="b-reset">reset</button></span></div>
-      </div>
-      <p class="cap">Synthetic user with a missed log at cycle 7 and an eight-day level shift at cycle 12. The robust filter treats the missed log as a merged cycle and follows the shift. The production gate rejects every cycle after the shift and stays at the old level. Computed in your browser.</p>
-    </div>
-  </div>
-</div></section>
-
-<section class="s" style="padding-top:110px"><div class="wrap grid">
-  <div class="label"><div class="n">§2</div><h2>Research directions</h2></div>
-  <div class="prop">
-    <div class="row"><span class="k">01</span><h4>Adaptive Bayesian state estimation</h4><p>Kalman and nonlinear filtering, uncertainty calibration, irregular observations. Phase one is the FemoraAI study above. Next, learned noise models and parallel-in-time smoothing on the GPU.</p><span class="tag mono">in progress</span></div>
-    <div class="row"><span class="k">02</span><h4><a href="02/" style="text-decoration:none;border-bottom:1px solid var(--rule)">A GPU Navier–Stokes solver →</a></h4><p>Verified to machine precision against an independent FFT solver, second order on Taylor–Green, validated on the lid-driven cavity against Ghia et al. Up to 13.5× faster after latency removal, mixed precision and a shared-memory smoother. The flow above is this solver, ported to WebGPU.</p><span class="tag mono">in progress</span></div>
-    <div class="row"><span class="k">03</span><h4>The anatomy of GPU computation</h4><p>Coalescing, occupancy, warp divergence and shared-memory bank conflicts, each isolated in a microbenchmark and measured on real hardware counters.</p><span class="tag mono">proposed</span></div>
-    <div class="row"><span class="k">04</span><h4>Neural operators for physical systems</h4><p>Do neural operators beat a well-tuned classical solver at matched accuracy once training cost and a strong baseline are counted?</p><span class="tag mono">proposed</span></div>
-    <div class="row"><span class="k">05</span><h4>The geometry of optimisation</h4><p>Loss landscapes, Hessian spectra and edge-of-stability dynamics, measured rather than sketched.</p><span class="tag mono">proposed</span></div>
-  </div>
-</div></section>
-
-<section class="s" id="about" style="padding-top:110px"><div class="wrap grid">
-  <div class="label"><div class="n">§3</div><h2>About</h2></div>
-  <div class="about-text">
-    <p>I learned computers by taking them apart, and I still work that way. I care about systems that estimate from noisy, incomplete data, and about the numerical methods and hardware that make those estimates fast and trustworthy.</p>
-    <p>Status labels on this site are literal. Results are measured, and the ones that did not go my way are reported too.</p>
-  </div>
-  <div class="cv">
-    <div><b>Luna</b><span>Jul 2026 – present · Co-founder. Agent architecture, AI infrastructure and backend.</span></div>
-    <div><b>FemoraAI</b><span>Jan 2025 – Jul 2026 · Co-founder. Backend, AI inference and data infrastructure. 4,600+ users.</span></div>
-    <div><b>ABN Information Technologies</b><span>Jun – Nov 2025 · Intern, junior backend developer.</span></div>
-    <div><b>Pink Parcel</b><span>Oct 2023 – Jan 2025 · Co-founder. 300+ orders across 6 university hostels.</span></div>
-    <div><b>Lovely Professional University</b><span>B.Tech, CSE, expected Jun 2027 · CGPA 9.15. Diploma, CSE, Jun 2024 · CGPA 9.33.</span></div>
-  </div>
+<section class="contact" id="contact"><div class="wrap grid">
+  <div class="mono" style="grid-column:1/-1;margin-bottom:20px"><span class="tick"></span>06 · Contact</div>
+  <h2>If any of this is interesting to you, I'd like to hear from you.</h2>
+  <div class="ways"><a href="mailto:hackit830@gmail.com">hackit830@gmail.com</a><a href="https://www.linkedin.com/in/ramanjitsingh1">LinkedIn</a><a href="https://github.com/ramanjitsingh-hub">GitHub</a></div>
 </div></section>
 </main>
 
 <footer><div class="wrap grid mono">
-  <span class="c1">Ramanjit Singh · Phagwara, Punjab</span>
-  <span class="c2"><a href="mailto:hackit830@gmail.com">hackit830@gmail.com</a> · <a href="https://www.linkedin.com/in/ramanjitsingh1">linkedin.com/in/ramanjitsingh1</a> · <a href="https://github.com/ramanjitsingh-hub">github</a></span>
-  <span class="c3">Every figure is computed, none is drawn.</span>
+  <span class="c1">Ramanjit Singh · Phagwara, Punjab, India</span>
+  <span class="c3">Every figure on this site is computed, none is drawn.</span>
 </div></footer>
 
+<script src="assets/filter.js"></script>
+<script src="assets/flow-cpu.js"></script>
+<script src="assets/home-fig1.js"></script>
 <script type="module">
 import { startGpuFlow } from "./assets/flow-gpu.js";
 const set = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
@@ -223,152 +335,13 @@ try {
     if (s.maxDiv != null) set("a-div", s.maxDiv.toExponential(1)); } });
 } catch (e) { ok = false; }
 if (ok) {
-  set("a-title", "fig. 0  investigation 02 solver, running on your GPU");
-  set("a-k1", "time"); set("a-v1", "Heun RK2, conservative central");
-  set("a-k2", "projection"); set("a-v2", "2 multigrid V(2,2) cycles"); set("a-k3", "WebGPU");
+  set("a-title", "investigation 02 solver, on your GPU");
+  set("a-v1", "Heun RK2, conservative central");
+  set("a-v2", "2 multigrid V(2,2) cycles"); set("a-k3", "WebGPU");
 } else { window.startCpuFlow(); }
 </script>
-<script src="assets/filter.js"></script>
 <script>
-/* ---------------------------------------------------------------------------
-   fig. 0  Stable-fluids solver (Stam 1999) with vorticity confinement
-   (Fedkiw, Stam, Jensen 2001). Inviscid, semi-Lagrangian advection,
-   Gauss–Seidel pressure projection on a 160 x 90 cell-centred grid.
---------------------------------------------------------------------------- */
-window.startCpuFlow=function(){
-  const NX=160, NY=90, W=NX+2, SZ=W*(NY+2), IX=(i,j)=>i+W*j;
-  let u=new Float32Array(SZ),v=new Float32Array(SZ),u0=new Float32Array(SZ),v0=new Float32Array(SZ);
-  const p=new Float32Array(SZ),div=new Float32Array(SZ),curl=new Float32Array(SZ);
-  const dyes=[0,1,2].map(()=>({d:new Float32Array(SZ),t:new Float32Array(SZ)}));
-  const COLS=[[157,147,200],[159,188,214],[163,181,155]], BASE=[246,244,239];
-  const canvas=document.getElementById("fluid"),ctx=canvas.getContext("2d");
-  const off=document.createElement("canvas");off.width=NX;off.height=NY;const octx=off.getContext("2d");
-  const img=octx.createImageData(NX,NY);
-  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
-  document.getElementById("a-grid").textContent=`${NX} × ${NY}, CPU fallback`;document.getElementById("a-v1").textContent="semi-Lagrangian";document.getElementById("a-v2").textContent="20 Gauss–Seidel sweeps";document.getElementById("a-k3").textContent="step time, your CPU";
-
-  function bnd(b,x){
-    for(let i=1;i<=NX;i++){x[IX(i,0)]=b===2?-x[IX(i,1)]:x[IX(i,1)];x[IX(i,NY+1)]=b===2?-x[IX(i,NY)]:x[IX(i,NY)];}
-    for(let j=1;j<=NY;j++){x[IX(0,j)]=b===1?-x[IX(1,j)]:x[IX(1,j)];x[IX(NX+1,j)]=b===1?-x[IX(NX,j)]:x[IX(NX,j)];}
-    x[IX(0,0)]=.5*(x[IX(1,0)]+x[IX(0,1)]);x[IX(0,NY+1)]=.5*(x[IX(1,NY+1)]+x[IX(0,NY)]);
-    x[IX(NX+1,0)]=.5*(x[IX(NX,0)]+x[IX(NX+1,1)]);x[IX(NX+1,NY+1)]=.5*(x[IX(NX,NY+1)]+x[IX(NX+1,NY)]);
-  }
-  function advect(b,d,d0,uu,vv,dt){
-    const dt0=dt*NX;
-    for(let j=1;j<=NY;j++)for(let i=1;i<=NX;i++){
-      const k=IX(i,j);let x=i-dt0*uu[k],y=j-dt0*vv[k];
-      x=Math.min(Math.max(x,.5),NX+.5);y=Math.min(Math.max(y,.5),NY+.5);
-      const i0=x|0,j0=y|0,s1=x-i0,t1=y-j0,s0=1-s1,t0=1-t1;
-      d[k]=s0*(t0*d0[IX(i0,j0)]+t1*d0[IX(i0,j0+1)])+s1*(t0*d0[IX(i0+1,j0)]+t1*d0[IX(i0+1,j0+1)]);
-    }
-    bnd(b,d);
-  }
-  function project(){
-    const h=1/NX;
-    for(let j=1;j<=NY;j++)for(let i=1;i<=NX;i++){const k=IX(i,j);
-      div[k]=-.5*h*(u[k+1]-u[k-1]+v[k+W]-v[k-W]);p[k]=0;}
-    bnd(0,div);bnd(0,p);
-    for(let it=0;it<20;it++){
-      for(let j=1;j<=NY;j++)for(let i=1;i<=NX;i++){const k=IX(i,j);p[k]=(div[k]+p[k-1]+p[k+1]+p[k-W]+p[k+W])/4;}
-      bnd(0,p);
-    }
-    for(let j=1;j<=NY;j++)for(let i=1;i<=NX;i++){const k=IX(i,j);
-      u[k]-=.5*(p[k+1]-p[k-1])/h;v[k]-=.5*(p[k+W]-p[k-W])/h;}
-    bnd(1,u);bnd(2,v);
-  }
-  function maxDiv(){let m=0;for(let j=1;j<=NY;j++)for(let i=1;i<=NX;i++){const k=IX(i,j);
-    const d=Math.abs(.5*(u[k+1]-u[k-1]+v[k+W]-v[k-W]));if(d>m)m=d;}return m;}
-  function confine(dt,eps){
-    for(let j=1;j<=NY;j++)for(let i=1;i<=NX;i++){const k=IX(i,j);curl[k]=.5*((v[k+1]-v[k-1])-(u[k+W]-u[k-W]));}
-    for(let j=2;j<NY;j++)for(let i=2;i<NX;i++){const k=IX(i,j);
-      let gx=.5*(Math.abs(curl[k+1])-Math.abs(curl[k-1])),gy=.5*(Math.abs(curl[k+W])-Math.abs(curl[k-W]));
-      const len=Math.hypot(gx,gy)+1e-6;gx/=len;gy/=len;
-      u[k]+=dt*eps*gy*curl[k];v[k]-=dt*eps*gx*curl[k];}
-  }
-  function splat(cx,cy,fx,fy,ci,amt,rad){
-    const r2=rad*rad,i0=Math.max(1,(cx-3*rad)|0),i1=Math.min(NX,(cx+3*rad)|0),j0=Math.max(1,(cy-3*rad)|0),j1=Math.min(NY,(cy+3*rad)|0);
-    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const w=Math.exp(-((i-cx)**2+(j-cy)**2)/r2),k=IX(i,j);
-      u[k]+=fx*w;v[k]+=fy*w;dyes[ci].d[k]=Math.min(1.6,dyes[ci].d[k]+amt*w);}
-  }
-  // emitters on slow Lissajous paths, biased to the right of the composition
-  const em=[{a:.31,b:.23,ph:0},{a:.19,b:.29,ph:2.1},{a:.27,b:.17,ph:4.2}];
-  let time=0,frame=0,ema=0,pointer=null;
-  function step(){
-    const dt=.016,t0=performance.now();time+=dt;
-    em.forEach((e,c)=>{
-      const x=.70+.22*Math.sin(e.a*time+e.ph),y=.55+.32*Math.sin(e.b*time*1.3+e.ph*.7);
-      const dx=.22*e.a*Math.cos(e.a*time+e.ph),dy=.32*e.b*1.3*Math.cos(e.b*time*1.3+e.ph*.7);
-      splat(x*NX,y*NY,dx*.9,dy*.9,c,.07,4.0);
-    });
-    if(pointer&&pointer.fresh){splat(pointer.x*NX,pointer.y*NY,pointer.dx*3,pointer.dy*3,frame%3,.12,4.5);pointer.fresh=false;}
-    confine(dt,.9);
-    u0.set(u);v0.set(v);advect(1,u,u0,u0,v0,dt);advect(2,v,v0,u0,v0,dt);
-    project();
-    for(const dy of dyes){dy.t.set(dy.d);advect(0,dy.d,dy.t,u,v,dt);for(let k=0;k<SZ;k++)dy.d[k]*=.9965;}
-    for(let k=0;k<SZ;k++){u[k]*=.9995;v[k]*=.9995;}
-    const ms=performance.now()-t0;ema=ema?ema*.95+ms*.05:ms;frame++;
-    if(frame%20===0){document.getElementById("a-ms").textContent=ema.toFixed(1)+" ms";
-      document.getElementById("a-div").textContent=(maxDiv()).toExponential(1);}
-  }
-  function render(){
-    const data=img.data;
-    for(let j=0;j<NY;j++)for(let i=0;i<NX;i++){const k=IX(i+1,j+1),o=4*(i+NX*j);
-      let r=BASE[0],g=BASE[1],b=BASE[2];
-      for(let c=0;c<3;c++){const a=Math.min(1,dyes[c].d[k])*.78;const C=COLS[c];r=r*(1-a)+C[0]*a;g=g*(1-a)+C[1]*a;b=b*(1-a)+C[2]*a;}
-      data[o]=r;data[o+1]=g;data[o+2]=b;data[o+3]=255;}
-    octx.putImageData(img,0,0);
-    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
-    ctx.drawImage(off,0,0,canvas.width,canvas.height);
-  }
-  function size(){const r=canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);canvas.width=r.width*d;canvas.height=r.height*d;}
-  size();addEventListener("resize",size);
-  const hero=document.querySelector(".hero");
-  hero.addEventListener("pointermove",e=>{const r=canvas.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
-    if(pointer){pointer.dx=x-pointer.x;pointer.dy=y-pointer.y;}pointer={x,y,dx:pointer?pointer.dx:0,dy:pointer?pointer.dy:0,fresh:true};});
-  let visible=true;new IntersectionObserver(es=>{visible=es[0].isIntersecting;}).observe(hero);
-  if(reduce){for(let i=0;i<240;i++)step();render();}
-  else{(function loop(){if(visible&&!document.hidden){step();render();}requestAnimationFrame(loop);})();}
-};
-
-/* ---------------------------------------------------------------------------
-   fig. 1  Robust grid filter vs the production FemoraAI update (shared-filter.js)
---------------------------------------------------------------------------- */
-(function(){
-  const svg=document.getElementById("fig1"),NS="http://www.w3.org/2000/svg",W=640,H=300,L=34,R=8,T=34,B=36;
-  const xmin=18,xmax=62,sx=x=>L+(x-xmin)/(xmax-xmin)*(W-L-R),ymax=.6,sy=y=>H-B-(y/ymax)*(H-B-T);
-  const seq=RF.synthetic(7,22);let f,prod,k,acc=true,playing=true;
-  const el=(n,a,t)=>{const e=document.createElementNS(NS,n);for(const q in a)e.setAttribute(q,a[q]);if(t!=null)e.textContent=t;svg.append(e);return e;};
-  function reset(){f=RF.gridFilter({prior:28,priorSd:5,s:1.8});prod=RF.production(28);k=0;acc=true;draw();}
-  function draw(){
-    svg.innerHTML="";
-    for(let x=20;x<=60;x+=10){el("line",{x1:sx(x),x2:sx(x),y1:T-6,y2:H-B,stroke:"#ECE9E2"});el("text",{x:sx(x),y:H-B+20,"text-anchor":"middle","font-size":11,fill:"#8A8C8F","font-family":"Geist Mono"},x);}
-    el("line",{x1:L,x2:W-R,y1:H-B,y2:H-B,stroke:"#DCD8CF"});
-    el("text",{x:W-R,y:H-4,"text-anchor":"end","font-size":11,fill:"#8A8C8F","font-family":"Geist Mono"},"cycle level, days");
-    for(let i=0;i<k;i++){const z=seq[i].z,x=sx(Math.min(z,xmax-.3)),cur=i===k-1;
-      el("line",{x1:x,x2:x,y1:H-B,y2:H-B-(cur?18:9),stroke:"#9FBCD6","stroke-width":cur?2:1.2,opacity:cur?1:.75});
-      if(z>xmax&&cur)el("text",{x:x-4,y:H-B-22,"text-anchor":"end","font-size":10.5,fill:"#5B5E63","font-family":"Geist Mono"},"z = "+z+" (merged)");}
-    const d=f.density;let path=`M${sx(xmin)},${sy(0)}`;
-    RF.X.forEach((x,i)=>{if(x>=xmin&&x<=xmax)path+=` L${sx(x).toFixed(1)},${sy(Math.min(d[i],ymax)).toFixed(1)}`;});
-    path+=` L${sx(xmax)},${sy(0)} Z`;
-    el("path",{d:path,fill:"#9D93C8","fill-opacity":.22,stroke:"#9D93C8","stroke-width":1.6,"stroke-linejoin":"round"});
-    const m=prod.S.mu,s=prod.sigma(),yb=T-12;
-    el("line",{x1:sx(m-s),x2:sx(m+s),y1:yb,y2:yb,stroke:"#5B5E63","stroke-width":1.2,"stroke-dasharray":"3 3"});
-    [m-s,m+s].forEach(q=>el("line",{x1:sx(q),x2:sx(q),y1:yb-4,y2:yb+4,stroke:"#5B5E63","stroke-width":1.2}));
-    el("circle",{cx:sx(m),cy:yb,r:2.6,fill:"#5B5E63"});
-    el("line",{x1:sx(m),x2:sx(m),y1:yb+6,y2:H-B,stroke:"#5B5E63","stroke-width":.8,"stroke-dasharray":"2 4",opacity:.6});
-    const o=k?seq[k-1]:null;
-    document.getElementById("f-k").textContent="k = "+k;
-    document.getElementById("f-read").textContent=o?`z = ${o.z} d${o.missed?" merged":""} · posterior mean ${f.mean().toFixed(1)} · production ${m.toFixed(1)}${acc?"":" · gate rejected"}`:"prior, before any observation";
-  }
-  function step(){if(k>=seq.length){reset();return;}const z=seq[k].z;f.update(z);acc=prod.observe(z);k++;draw();}
-  document.getElementById("b-step").onclick=step;document.getElementById("b-reset").onclick=reset;
-  const pb=document.getElementById("b-play");pb.onclick=()=>{playing=!playing;pb.textContent=playing?"pause":"play";};
-  reset();
-  let vis=false;new IntersectionObserver(es=>{vis=es[0].isIntersecting;}).observe(svg);
-  setInterval(()=>{if(playing&&vis&&!document.hidden)step();},1400);
-})();
-
-addEventListener("scroll",()=>document.getElementById("nav").classList.toggle("solid",scrollY>40),{passive:true});
+addEventListener("scroll", () => document.getElementById("nav").classList.toggle("solid", scrollY > 40), { passive: true });
 </script>
 </body>
 </html>
