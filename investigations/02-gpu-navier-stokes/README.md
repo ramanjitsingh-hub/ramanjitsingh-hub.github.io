@@ -84,7 +84,7 @@ Each correction is computed by one FP32 V-cycle on the FP64 residual, then added
 | FP32 | 8.0e-5 | 2.5e-5 | 2.5e-5 | 2.4e-5 | 2.5e-5 |
 | mixed | 8.0e-5 | 4.0e-8 | 2.4e-11 | 4.6e-14 | 4.4e-14 |
 
-The mixed solver follows the FP64 contraction cycle for cycle down to 4.6 × 10⁻¹⁴, while pure FP32 stalls at 2.5 × 10⁻⁵. On Taylor–Green the mixed solver reproduces **every FP64 error digit at every N from 32 to 1024** (6.150632 × 10⁻⁸ at N = 1024) and runs 1.4 to 1.45× faster (5.3 s against 7.6 s at N = 1024). Halving the bytes moved by the smoother is where the gain comes from, which is consistent with the bandwidth-bound reading above.
+The mixed solver follows the FP64 contraction cycle for cycle down to 4.6 × 10⁻¹⁴, while pure FP32 stalls at 2.5 × 10⁻⁵. On Taylor–Green the mixed solver reproduces **every FP64 error digit at every N from 32 to 1024** (6.150632 × 10⁻⁸ at N = 1024) and runs 1.38 to 1.44× faster (85 s against 123 s for the full run at N = 1024). Halving the bytes moved by the smoother is where the gain comes from, which is consistent with the bandwidth-bound reading above.
 
 ### Throughput after milestone 2
 | N | 128 | 256 | 512 | 1024 | 2048 |
