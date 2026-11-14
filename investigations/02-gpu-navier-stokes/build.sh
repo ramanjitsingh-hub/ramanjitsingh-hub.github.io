@@ -5,5 +5,5 @@ cd "$(dirname "$0")"
 mkdir -p bin
 NVCC="${NVCC:-/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.5/bin/nvcc.exe}"
 CCBIN="${CCBIN:-$(ls -d "/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/"*/bin/Hostx64/x64 2>/dev/null | tail -1)}"
-"$NVCC" ${CCBIN:+-ccbin "$CCBIN"} -O3 -arch=sm_86 -lineinfo -std=c++17 -o bin/ns2d src/ns2d.cu
-echo built bin/ns2d
+for prog in ns2d cavity; do "$NVCC" ${CCBIN:+-ccbin "$CCBIN"} -O3 -arch=sm_86 -lineinfo -std=c++17 -o bin/$prog src/$prog.cu; done
+echo built bin/ns2d bin/cavity

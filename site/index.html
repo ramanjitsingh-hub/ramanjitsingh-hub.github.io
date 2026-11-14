@@ -131,14 +131,14 @@ footer .c1{grid-column:1/5}footer .c2{grid-column:5/9}footer .c3{grid-column:9/1
       <p class="sub">Computer science engineer and co-founder of FemoraAI and Luna. Each investigation here is a question, a derivation, an implementation and a measured result.</p>
     </div>
     <div class="annot mono">
-      <div>fig. 0 &nbsp;incompressible Euler flow, live</div>
-      <div class="eq">∂<sub>t</sub><i>u</i> + (<i>u</i>·∇)<i>u</i> = −∇<i>p</i> + <i>f</i>, &nbsp; ∇·<i>u</i> = 0</div>
+      <div id="a-title">fig. 0 &nbsp;incompressible flow, live</div>
+      <div class="eq">∂<sub>t</sub><i>u</i> + (<i>u</i>·∇)<i>u</i> = −∇<i>p</i> + ν∇²<i>u</i> + <i>f</i>, &nbsp; ∇·<i>u</i> = 0</div>
       <dl>
         <dt>grid</dt><dd id="a-grid">·</dd>
-        <dt>advection</dt><dd>semi-Lagrangian</dd>
-        <dt>projection</dt><dd>20 Gauss–Seidel sweeps</dd>
+        <dt id="a-k1">advection</dt><dd id="a-v1">·</dd>
+        <dt id="a-k2">projection</dt><dd id="a-v2">·</dd>
         <dt>max |∇·u| after solve</dt><dd id="a-div">·</dd>
-        <dt>step time, your CPU</dt><dd id="a-ms">·</dd>
+        <dt id="a-k3">step time</dt><dd id="a-ms">·</dd>
       </dl>
       <div style="margin-top:12px"><span class="tick"></span>move the cursor to stir the flow</div>
     </div>
@@ -184,7 +184,7 @@ footer .c1{grid-column:1/5}footer .c2{grid-column:5/9}footer .c3{grid-column:9/1
   <div class="label"><div class="n">§2</div><h2>Research directions</h2></div>
   <div class="prop">
     <div class="row"><span class="k">01</span><h4>Adaptive Bayesian state estimation</h4><p>Kalman and nonlinear filtering, uncertainty calibration, irregular observations. Phase one is the FemoraAI study above. Next, learned noise models and parallel-in-time smoothing on the GPU.</p><span class="tag mono">in progress</span></div>
-    <div class="row"><span class="k">02</span><h4>A GPU Navier–Stokes solver</h4><p>Verified against an independent FFT solver to machine precision, exactly second order. Launch-latency removal and mixed-precision multigrid made it 13× faster at N = 128 and 1.7× at N = 2048, with every FP64 error digit preserved.</p><span class="tag mono">in progress</span></div>
+    <div class="row"><span class="k">02</span><h4>A GPU Navier–Stokes solver</h4><p>Verified to machine precision against an independent FFT solver, second order on Taylor–Green, validated on the lid-driven cavity against Ghia et al. Up to 13.6× faster after latency removal, mixed precision and a shared-memory smoother. The flow above is this solver, ported to WebGPU.</p><span class="tag mono">in progress</span></div>
     <div class="row"><span class="k">03</span><h4>The anatomy of GPU computation</h4><p>Coalescing, occupancy, warp divergence and shared-memory bank conflicts, each isolated in a microbenchmark and measured on real hardware counters.</p><span class="tag mono">proposed</span></div>
     <div class="row"><span class="k">04</span><h4>Neural operators for physical systems</h4><p>Do neural operators beat a well-tuned classical solver at matched accuracy once training cost and a strong baseline are counted?</p><span class="tag mono">proposed</span></div>
     <div class="row"><span class="k">05</span><h4>The geometry of optimisation</h4><p>Loss landscapes, Hessian spectra and edge-of-stability dynamics, measured rather than sketched.</p><span class="tag mono">proposed</span></div>
@@ -213,6 +213,21 @@ footer .c1{grid-column:1/5}footer .c2{grid-column:5/9}footer .c3{grid-column:9/1
   <span class="c3">Every figure is computed, none is drawn.</span>
 </div></footer>
 
+<script type="module">
+import { startGpuFlow } from "./assets/flow-gpu.js";
+const set = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
+let ok = false;
+try {
+  ok = await startGpuFlow(document.getElementById("fluid"), { onStats: s => {
+    set("a-grid", s.grid + ", MAC, FP32"); set("a-ms", s.fps.toFixed(0) + " fps, " + s.kernels + " kernels/frame");
+    if (s.maxDiv != null) set("a-div", s.maxDiv.toExponential(1)); } });
+} catch (e) { ok = false; }
+if (ok) {
+  set("a-title", "fig. 0  investigation 02 solver, running on your GPU");
+  set("a-k1", "time"); set("a-v1", "Heun RK2, conservative central");
+  set("a-k2", "projection"); set("a-v2", "2 multigrid V(2,2) cycles"); set("a-k3", "WebGPU");
+} else { window.startCpuFlow(); }
+</script>
 <script src="assets/filter.js"></script>
 <script>
 /* ---------------------------------------------------------------------------
@@ -220,7 +235,7 @@ footer .c1{grid-column:1/5}footer .c2{grid-column:5/9}footer .c3{grid-column:9/1
    (Fedkiw, Stam, Jensen 2001). Inviscid, semi-Lagrangian advection,
    Gauss–Seidel pressure projection on a 160 x 90 cell-centred grid.
 --------------------------------------------------------------------------- */
-(function(){
+window.startCpuFlow=function(){
   const NX=160, NY=90, W=NX+2, SZ=W*(NY+2), IX=(i,j)=>i+W*j;
   let u=new Float32Array(SZ),v=new Float32Array(SZ),u0=new Float32Array(SZ),v0=new Float32Array(SZ);
   const p=new Float32Array(SZ),div=new Float32Array(SZ),curl=new Float32Array(SZ);
@@ -230,7 +245,7 @@ footer .c1{grid-column:1/5}footer .c2{grid-column:5/9}footer .c3{grid-column:9/1
   const off=document.createElement("canvas");off.width=NX;off.height=NY;const octx=off.getContext("2d");
   const img=octx.createImageData(NX,NY);
   const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
-  document.getElementById("a-grid").textContent=`${NX} × ${NY}`;
+  document.getElementById("a-grid").textContent=`${NX} × ${NY}, CPU fallback`;document.getElementById("a-v1").textContent="semi-Lagrangian";document.getElementById("a-v2").textContent="20 Gauss–Seidel sweeps";document.getElementById("a-k3").textContent="step time, your CPU";
 
   function bnd(b,x){
     for(let i=1;i<=NX;i++){x[IX(i,0)]=b===2?-x[IX(i,1)]:x[IX(i,1)];x[IX(i,NY+1)]=b===2?-x[IX(i,NY)]:x[IX(i,NY)];}
@@ -313,7 +328,7 @@ footer .c1{grid-column:1/5}footer .c2{grid-column:5/9}footer .c3{grid-column:9/1
   let visible=true;new IntersectionObserver(es=>{visible=es[0].isIntersecting;}).observe(hero);
   if(reduce){for(let i=0;i<240;i++)step();render();}
   else{(function loop(){if(visible&&!document.hidden){step();render();}requestAnimationFrame(loop);})();}
-})();
+};
 
 /* ---------------------------------------------------------------------------
    fig. 1  Robust grid filter vs the production FemoraAI update (shared-filter.js)

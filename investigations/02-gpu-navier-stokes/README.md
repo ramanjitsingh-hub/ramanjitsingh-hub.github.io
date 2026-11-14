@@ -1,6 +1,6 @@
 # 02. A GPU Navier–Stokes solver
 
-**Status. In progress.** Milestone 1 (verified solver, convergence, multigrid, baseline) and milestone 2 (latency removal, mixed-precision multigrid) complete. Wall-bounded flows, shared-memory smoothers and hardware-counter profiling are next.
+**Status. In progress.** Milestones 1 to 3 complete: verified periodic solver, latency removal and mixed-precision multigrid, wall-bounded lid-driven cavity, a shared-memory smoother, and a WebGPU port running on the website. Hardware-counter profiling is blocked on a Windows permission.
 
 ## Question
 On a bandwidth-limited consumer GPU, how accurately and how fast can a from-scratch incompressible flow solver run, and where does its time go?
@@ -93,11 +93,47 @@ The mixed solver follows the FP64 contraction cycle for cycle down to 4.6 × 10�
 | mixed, ms/step | 2.22 | 3.80 | 16.03 | 64.40 | 276.7 |
 | mixed, cell-steps per second | 7.4e6 | 1.73e7 | 1.64e7 | 1.63e7 | 1.52e7 |
 
+## Milestone 3
+
+### 3a. Lid-driven cavity against Ghia, Ghia and Shin (1982)
+`src/cavity.cu` adds walls to the same scheme: no-slip through ghost values (u_ghost = 2U_wall − u_inside), a lid moving at U = 1, and a multigrid whose stencil drops neighbours outside the domain (homogeneous Neumann for the pressure correction). Each case runs until max |∂u/∂t| < 10⁻⁷. The reference tables (`data/ghia1982.json`) come from three independent reproductions cross-checked value by value, since the publisher's copy could not be fetched. The Re = 100 and Re = 1000 columns agree in every source. Run with `python run_cavity.py` (32 min).
+
+| Re | N | steps to steady | max dev. u | rms dev. u | max dev. v | rms dev. v | ψ_min |
+|---|---|---|---|---|---|---|---|
+| 100 | 64 | 5,508 | 0.0038 | 0.0019 | 0.0086 | 0.0046 | −0.10318 |
+| 100 | 128 | 22,086 | 0.0049 | 0.0024 | 0.0091 | 0.0050 | −0.10343 |
+| 100 | 256 | 88,452 | 0.0050 | 0.0025 | 0.0092 | 0.0051 | −0.10350 |
+| 1000 | 64 | 18,900 | 0.0178 | 0.0113 | 0.0200 | 0.0115 | −0.11360 |
+| 1000 | 128 | 37,376 | 0.0030 | 0.0019 | 0.0125 | 0.0062 | −0.11751 |
+| 1000 | 256 | 74,496 | 0.0053 | 0.0030 | 0.0168 | 0.0089 | −0.11858 |
+
+Deviations are measured at Ghia's 17 centreline points, excluding the imposed wall values. Every case converged, with max |∇·u| ≤ 1.7 × 10⁻⁹.
+
+**How to read it.** The solver converges on itself at second order. Between successive grids the centreline profiles change by 1.1 × 10⁻³ then 2.6 × 10⁻⁴ at Re = 100 (observed order 2.11), and by 2.3 × 10⁻² then 6.2 × 10⁻³ at Re = 1000 (order 1.88). At Re = 100 the remaining difference from Ghia, about 0.005 in u and 0.009 in v, does not shrink as the grid is refined. It is therefore larger than this solver's own discretisation error. Ghia's values come from a 129 × 129 grid and carry discretisation error of their own, so the comparison cannot say which side the residual difference belongs to. At Re = 1000 the deviation grows slightly from N = 128 to N = 256 while ψ_min keeps moving, consistent with the same explanation. Settling it needs a higher-accuracy reference, for example a spectral benchmark solution. That is listed as next work, not claimed here.
+
+### 3b. Temporally blocked smoother
+`k_smooth_tb` loads a 32 × 32 tile with a 4-cell halo into shared memory and performs both red-black sweeps of a smoothing call there, so the fine grid is read and written once per smoothing call instead of four times.
+
+- **A race found and fixed.** The first version wrote back in place. Neighbouring blocks that had not yet loaded their halo then read already-updated values. On small grids every block finishes loading before any block writes, so the results matched and the bug was invisible. At N = 2048 blocks run in waves and the residual history diverged in the second digit. The fixed version writes to a second buffer and swaps. Each level is smoothed exactly twice per V-cycle, so the pointers return to their original buffers after every cycle and the captured CUDA Graph stays valid.
+- **Bitwise identical.** After the fix, the Taylor–Green solution at N = 512 (FP64) and N = 1024 (mixed) is identical to the unblocked solver to the last bit (max difference 0.0).
+
+| ms per step, median of 5 | N = 512 | N = 1024 | N = 2048 |
+|---|---|---|---|
+| FP64 | 22.73 | 92.55 | 392.1 |
+| FP64 + blocked smoother | 17.27 | 61.77 | 245.5 |
+| mixed | 15.97 | 64.20 | 276.0 |
+| mixed + blocked smoother | **11.98** | **43.03** | **177.5** |
+
+The blocked smoother is applied only to levels with N ≥ 512. Below that, whole time steps got slower (5.39 → 7.14 ms at N = 256) even though an isolated V-cycle did not. I could not establish why without hardware counters, so the switch is left off there and the cause is recorded as open. Against the milestone 1 baseline, a step is now **13.6× faster at N = 128, 4.8× at N = 512 and 2.7× at N = 2048**, with the same answer. The full mixed-precision Taylor–Green run at N = 1024 takes 57 s, down from 85 s in milestone 2 and 123 s in FP64.
+
+### 3c. WebGPU port on the website
+`site/assets/flow-gpu.js` ports the solver to WGSL compute shaders: MAC grid, conservative advection, multigrid V(2,2) with a single-workgroup coarse solve, 190 dispatches per frame on a 256 × 128 periodic grid. It differs from the CUDA solver in ways stated on the page: FP32, Heun (RK2) instead of SSP-RK3, a fixed two V-cycles per projection warm-started from the previous pressure, linear drag, and a passive dye advected semi-Lagrangian for display. On this laptop in Chrome it runs at 60 fps (display-capped) with max |∇·u| ≈ 3 × 10⁻⁴ read back asynchronously. Browsers without WebGPU fall back to the earlier CPU solver. That fallback path has not been tested in a browser without WebGPU yet.
+
 ## Not done yet, and why
 - **Hardware-counter profiling.** Nsight Compute 2026.4 is installed but Windows blocks counter access (`ERR_NVGPUCTRPERM`) until it is enabled in the NVIDIA Control Panel with administrator rights.
-- **Lid-driven cavity.** It needs walls (no-slip velocity, Neumann pressure in the multigrid) and the published benchmark table, which I will take from the source rather than from memory. Moved to milestone 3.
 
-## Next (milestone 3)
-1. Shared-memory, temporally blocked red-black smoother to cut fine-level traffic, measured against the roofline once counters are on.
-2. Walls and the lid-driven cavity against the Ghia, Ghia and Shin (1982) tables.
-3. A live WebGPU port of this solver for the website, replacing the CPU-only hero flow.
+## Next
+1. Hardware-counter roofline of every kernel, as soon as counter access is enabled.
+2. Explain the small-grid slowdown of the blocked smoother with those counters.
+3. A higher-accuracy reference for the cavity to settle the residual difference from Ghia.
+4. Investigation 03, the anatomy of GPU computation, built on these kernels.

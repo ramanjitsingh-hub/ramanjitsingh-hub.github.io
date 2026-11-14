@@ -15,7 +15,7 @@
 //   bench   time per step with a per-phase breakdown (median of 5 repeats)
 //
 // Precision: --prec f64 | f32 | mixed (FP64 iterate and residual, FP32 V-cycle corrections)
-// Ablation:  --graph --coarse1 --warm --adaptive (0/1), or --baseline 1 for the milestone-1 solver
+// Ablation:  --graph --coarse1 --warm --adaptive --tb (0/1), or --baseline 1 for the milestone-1 solver
 //
 // Usage: ns2d <mode> [--N 256] [--prec f64|f32] [--nu 0.01] [--T 1.0] [--cfl 0.5]
 //                    [--tol 1e-10] [--steps 50] [--dump file]
@@ -165,6 +165,37 @@ __global__ void k_copy4(const float4* __restrict__ a, float4* __restrict__ b, si
   for (size_t k = blockIdx.x * (size_t)blockDim.x + threadIdx.x; k < m; k += (size_t)gridDim.x * blockDim.x) b[k] = a[k];
 }
 
+// Temporally blocked red-black smoother: a 32x32 tile plus a 4-cell halo lives in shared memory,
+// all half-sweeps of one smoothing call are done there, and the grid is read and written once.
+// Same arithmetic in the same colour order as k_smooth. Writes go to a second buffer: writing in
+// place would race with neighbouring blocks that are still reading their halos.
+template <class T>
+__global__ void k_smooth_tb(const T* __restrict__ p, T* __restrict__ pout, const T* __restrict__ f, int n, T h2, int halfsweeps) {
+  const int TI = 32, HALO = 4, W = TI + 2 * HALO;
+  __shared__ T sp[W * W], sf[W * W];
+  int bx = blockIdx.x * TI - HALO, by = blockIdx.y * TI - HALO, nt = blockDim.x * blockDim.y;
+  int tid = threadIdx.y * blockDim.x + threadIdx.x;
+  for (int t = tid; t < W * W; t += nt) {
+    int gi = wr(bx + t % W, n), gj = wr(by + t / W, n);
+    sp[t] = p[gj * n + gi]; sf[t] = f[gj * n + gi];
+  }
+  __syncthreads();
+  for (int s = 0; s < halfsweeps; s++) {
+    int color = s & 1, lo = s + 1, hi = W - 2 - s;      // valid region shrinks by one cell per half-sweep
+    for (int t = tid; t < W * W; t += nt) {
+      int lx = t % W, ly = t / W;
+      if (lx < lo || lx > hi || ly < lo || ly > hi) continue;
+      if (((wr(bx + lx, n) + wr(by + ly, n)) & 1) != color) continue;
+      sp[t] = T(0.25) * (sp[t - 1] + sp[t + 1] + sp[t - W] + sp[t + W] - h2 * sf[t]);
+    }
+    __syncthreads();
+  }
+  for (int t = tid; t < TI * TI; t += nt) {
+    int lx = HALO + t % TI, ly = HALO + t / TI, gi = bx + lx, gj = by + ly;
+    if (gi < n && gj < n) pout[gj * n + gi] = sp[ly * W + lx];
+  }
+}
+
 // single-block coarse solve: all red-black sweeps in shared memory, one launch (n*n <= 1024)
 template <class T>
 __global__ void k_coarse(T* p, const T* f, int n, T h2, int sweeps) {
@@ -201,13 +232,13 @@ static void reduce(const T* x, int m, double& sum, double& mx) {
 }
 
 // Ablation switches. All false reproduces the milestone-1 solver.
-struct Cfg { bool graph = true, coarse1 = true, warm = true, adaptive = true; };
+struct Cfg { bool graph = true, coarse1 = true, warm = true, adaptive = true, tb = true; };
 
 static int cycles_for(double rtol) { return std::max(1, (int)ceil(log(rtol) / log(0.07)) - 1); }
 
 template <class T>
 struct MG {
-  int L; std::vector<int> n; std::vector<T*> p, f, r; double h0; Cfg cfg;
+  int L; std::vector<int> n; std::vector<T*> p, p2, f, r; double h0; Cfg cfg;
   int pre = 2, post = 2, coarse_sweeps = 60, last = 0;
   cudaGraphExec_t gx = nullptr;
   MG(int N, double h, Cfg c) : h0(h), cfg(c) {
@@ -217,12 +248,20 @@ struct MG {
       size_t b = (size_t)n[l] * n[l] * sizeof(T);
       T *a, *cc, *d; CK(cudaMalloc(&a, b)); CK(cudaMalloc(&cc, b)); CK(cudaMalloc(&d, b));
       CK(cudaMemset(a, 0, b));
-      p.push_back(a); f.push_back(cc); r.push_back(d);
+      T* a2; CK(cudaMalloc(&a2, b)); CK(cudaMemset(a2, 0, b));
+      p.push_back(a); p2.push_back(a2); f.push_back(cc); r.push_back(d);
     }
   }
   double h(int l) const { return h0 * (double)(1 << l); }
+  // Blocked smoothing writes into p2 and swaps. Each level is smoothed twice per V-cycle, so the
+  // pointers are back in place after every cycle and a captured CUDA Graph stays valid.
   void smooth(int l, int sweeps) {
     T h2 = (T)(h(l) * h(l));
+    if (cfg.tb && n[l] >= 512 && sweeps <= 2) {   // slower end to end below 512 (measured, cause open)
+      k_smooth_tb<T><<<dim3(n[l] / 32, n[l] / 32), B2, 0, S>>>(p[l], p2[l], f[l], n[l], h2, 2 * sweeps);
+      std::swap(p[l], p2[l]);
+      return;
+    }
     for (int s = 0; s < sweeps; s++) {
       k_smooth<T><<<G2(n[l]), B2, 0, S>>>(p[l], f[l], n[l], h2, 0);
       k_smooth<T><<<G2(n[l]), B2, 0, S>>>(p[l], f[l], n[l], h2, 1);
@@ -381,7 +420,7 @@ struct Solver {
   }
 };
 
-static void cfg_json(const Cfg& c) { printf("\"cfg\":{\"graph\":%d,\"coarse1\":%d,\"warm\":%d,\"adaptive\":%d}", c.graph, c.coarse1, c.warm, c.adaptive); }
+static void cfg_json(const Cfg& c) { printf("\"cfg\":{\"graph\":%d,\"coarse1\":%d,\"warm\":%d,\"adaptive\":%d,\"tb\":%d}", c.graph, c.coarse1, c.warm, c.adaptive, c.tb); }
 
 template <class T>
 static void run(const Opt& o, bool mixed) {
@@ -459,7 +498,8 @@ int main(int argc, char** argv) {
     else if (a == "--steps") o.steps = atoi(b.c_str()); else if (a == "--dump") o.dump = b;
     else if (a == "--graph") o.cfg.graph = atoi(b.c_str()); else if (a == "--coarse1") o.cfg.coarse1 = atoi(b.c_str());
     else if (a == "--warm") o.cfg.warm = atoi(b.c_str()); else if (a == "--adaptive") o.cfg.adaptive = atoi(b.c_str());
-    else if (a == "--baseline" && atoi(b.c_str())) o.cfg = Cfg{false, false, false, false};
+    else if (a == "--tb") o.cfg.tb = atoi(b.c_str());
+    else if (a == "--baseline" && atoi(b.c_str())) o.cfg = Cfg{false, false, false, false, false};
   }
   CK(cudaStreamCreate(&S));
   CK(cudaMalloc(&d_psum, RB * sizeof(double))); CK(cudaMalloc(&d_pmax, RB * sizeof(double)));

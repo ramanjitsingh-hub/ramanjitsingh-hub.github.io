@@ -1,0 +1,6 @@
+Re=100 N=64 converged=True t=26.9 wall=23s u dev max 0.0038 rms 0.0019 | v dev max 0.0086 rms 0.0046 | psi_min -0.103180 at [np.float64(0.609375), np.float64(0.734375)]  [23s]
+Re=100 N=128 converged=True t=27.0 wall=121s u dev max 0.0049 rms 0.0024 | v dev max 0.0091 rms 0.0050 | psi_min -0.103435 at [np.float64(0.6171875), np.float64(0.734375)]  [144s]
+Re=100 N=256 converged=True t=27.0 wall=809s u dev max 0.0050 rms 0.0025 | v dev max 0.0092 rms 0.0051 | psi_min -0.103501 at [np.float64(0.6171875), np.float64(0.73828125)]  [953s]
+Re=1000 N=64 converged=True t=147.7 wall=84s u dev max 0.0178 rms 0.0113 | v dev max 0.0200 rms 0.0115 | psi_min -0.113604 at [np.float64(0.53125), np.float64(0.5625)]  [1037s]
+Re=1000 N=128 converged=True t=146.0 wall=205s u dev max 0.0030 rms 0.0019 | v dev max 0.0125 rms 0.0062 | psi_min -0.117514 at [np.float64(0.53125), np.float64(0.5625)]  [1243s]
+Re=1000 N=256 converged=True t=145.5 wall=678s u dev max 0.0053 rms 0.0030 | v dev max 0.0168 rms 0.0089 | psi_min -0.118578 at [np.float64(0.53125), np.float64(0.56640625)]  [1921s]
