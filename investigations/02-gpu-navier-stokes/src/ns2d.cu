@@ -232,7 +232,7 @@ static void reduce(const T* x, int m, double& sum, double& mx) {
 }
 
 // Ablation switches. All false reproduces the milestone-1 solver.
-struct Cfg { bool graph = true, coarse1 = true, warm = true, adaptive = true, tb = true; };
+struct Cfg { bool graph = true, coarse1 = true, warm = true, adaptive = true, tb = true; int tbmin = 512; };
 
 static int cycles_for(double rtol) { return std::max(1, (int)ceil(log(rtol) / log(0.07)) - 1); }
 
@@ -257,7 +257,7 @@ struct MG {
   // pointers are back in place after every cycle and a captured CUDA Graph stays valid.
   void smooth(int l, int sweeps) {
     T h2 = (T)(h(l) * h(l));
-    if (cfg.tb && n[l] >= 512 && sweeps <= 2) {   // slower end to end below 512 (measured, cause open)
+    if (cfg.tb && n[l] >= cfg.tbmin && n[l] >= 32 && sweeps <= 2) {   // default tbmin 512, see README
       k_smooth_tb<T><<<dim3(n[l] / 32, n[l] / 32), B2, 0, S>>>(p[l], p2[l], f[l], n[l], h2, 2 * sweeps);
       std::swap(p[l], p2[l]);
       return;
@@ -499,7 +499,8 @@ int main(int argc, char** argv) {
     else if (a == "--graph") o.cfg.graph = atoi(b.c_str()); else if (a == "--coarse1") o.cfg.coarse1 = atoi(b.c_str());
     else if (a == "--warm") o.cfg.warm = atoi(b.c_str()); else if (a == "--adaptive") o.cfg.adaptive = atoi(b.c_str());
     else if (a == "--tb") o.cfg.tb = atoi(b.c_str());
-    else if (a == "--baseline" && atoi(b.c_str())) o.cfg = Cfg{false, false, false, false, false};
+    else if (a == "--tbmin") o.cfg.tbmin = atoi(b.c_str());
+    else if (a == "--baseline" && atoi(b.c_str())) o.cfg = Cfg{false, false, false, false, false, 512};
   }
   CK(cudaStreamCreate(&S));
   CK(cudaMalloc(&d_psum, RB * sizeof(double))); CK(cudaMalloc(&d_pmax, RB * sizeof(double)));

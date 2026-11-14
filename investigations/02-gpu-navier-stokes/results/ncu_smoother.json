@@ -1,0 +1,340 @@
+{
+ "N256_tbmin512": [
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 256,
+   "launches": 8,
+   "us": 16.6,
+   "waves": 2.13,
+   "occupancy": 76.0,
+   "sm_pct": 51.6,
+   "dram_pct": 78.6,
+   "dram_MB": 1.458
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 64,
+   "launches": 8,
+   "us": 6.22,
+   "waves": 0.53,
+   "occupancy": 40.9,
+   "sm_pct": 29.7,
+   "dram_pct": 47.1,
+   "dram_MB": 0.324
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 16,
+   "launches": 8,
+   "us": 3.55,
+   "waves": 0.13,
+   "occupancy": 15.7,
+   "sm_pct": 12.7,
+   "dram_pct": 23.3,
+   "dram_MB": 0.091
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 4,
+   "launches": 14,
+   "us": 3.25,
+   "waves": 0.03,
+   "occupancy": 16.0,
+   "sm_pct": 3.2,
+   "dram_pct": 7.4,
+   "dram_MB": 0.026
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 2,
+   "launches": 16,
+   "us": 3.23,
+   "waves": 0.02,
+   "occupancy": 16.1,
+   "sm_pct": 1.7,
+   "dram_pct": 2.8,
+   "dram_MB": 0.01
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 1,
+   "launches": 16,
+   "us": 3.2,
+   "waves": 0.01,
+   "occupancy": 16.1,
+   "sm_pct": 0.9,
+   "dram_pct": 1.5,
+   "dram_MB": 0.005
+  }
+ ],
+ "N256_tbmin32": [
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 64,
+   "launches": 6,
+   "us": 72.35,
+   "waves": 1.07,
+   "occupancy": 46.4,
+   "sm_pct": 54.4,
+   "dram_pct": 19.9,
+   "dram_MB": 1.606
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 16,
+   "launches": 6,
+   "us": 23.83,
+   "waves": 0.27,
+   "occupancy": 16.6,
+   "sm_pct": 43.2,
+   "dram_pct": 16.7,
+   "dram_MB": 0.443
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 4,
+   "launches": 6,
+   "us": 21.11,
+   "waves": 0.07,
+   "occupancy": 16.6,
+   "sm_pct": 11.3,
+   "dram_pct": 5.3,
+   "dram_MB": 0.125
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 2,
+   "launches": 24,
+   "us": 3.2,
+   "waves": 0.02,
+   "occupancy": 16.1,
+   "sm_pct": 1.7,
+   "dram_pct": 3.5,
+   "dram_MB": 0.012
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 1,
+   "launches": 22,
+   "us": 3.19,
+   "waves": 0.01,
+   "occupancy": 16.1,
+   "sm_pct": 0.8,
+   "dram_pct": 2.1,
+   "dram_MB": 0.007
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 1,
+   "launches": 6,
+   "us": 20.81,
+   "waves": 0.02,
+   "occupancy": 16.6,
+   "sm_pct": 2.9,
+   "dram_pct": 1.8,
+   "dram_MB": 0.042
+  }
+ ],
+ "N2048_tbmin512": [
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 4096,
+   "launches": 2,
+   "us": 2928.08,
+   "waves": 68.27,
+   "occupancy": 49.7,
+   "sm_pct": 82.8,
+   "dram_pct": 35.8,
+   "dram_MB": 117.313
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 1024,
+   "launches": 2,
+   "us": 751.02,
+   "waves": 17.07,
+   "occupancy": 49.3,
+   "sm_pct": 80.8,
+   "dram_pct": 30.1,
+   "dram_MB": 25.276
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 256,
+   "launches": 8,
+   "us": 14.7,
+   "waves": 2.13,
+   "occupancy": 76.4,
+   "sm_pct": 51.4,
+   "dram_pct": 76.6,
+   "dram_MB": 1.252
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 256,
+   "launches": 2,
+   "us": 200.7,
+   "waves": 4.27,
+   "occupancy": 47.7,
+   "sm_pct": 75.6,
+   "dram_pct": 27.0,
+   "dram_MB": 6.053
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 64,
+   "launches": 11,
+   "us": 5.94,
+   "waves": 0.53,
+   "occupancy": 40.9,
+   "sm_pct": 29.8,
+   "dram_pct": 45.0,
+   "dram_MB": 0.297
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 16,
+   "launches": 12,
+   "us": 3.49,
+   "waves": 0.13,
+   "occupancy": 15.8,
+   "sm_pct": 12.7,
+   "dram_pct": 22.1,
+   "dram_MB": 0.085
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 4,
+   "launches": 12,
+   "us": 3.22,
+   "waves": 0.03,
+   "occupancy": 16.0,
+   "sm_pct": 3.4,
+   "dram_pct": 6.8,
+   "dram_MB": 0.024
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 2,
+   "launches": 12,
+   "us": 3.2,
+   "waves": 0.02,
+   "occupancy": 16.1,
+   "sm_pct": 1.7,
+   "dram_pct": 2.8,
+   "dram_MB": 0.01
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 1,
+   "launches": 9,
+   "us": 3.19,
+   "waves": 0.01,
+   "occupancy": 16.1,
+   "sm_pct": 0.9,
+   "dram_pct": 1.3,
+   "dram_MB": 0.005
+  }
+ ],
+ "N2048_tbmin32": [
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 4096,
+   "launches": 5,
+   "us": 2920.26,
+   "waves": 68.27,
+   "occupancy": 49.7,
+   "sm_pct": 82.8,
+   "dram_pct": 35.9,
+   "dram_MB": 117.307
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 1024,
+   "launches": 5,
+   "us": 751.83,
+   "waves": 17.07,
+   "occupancy": 49.3,
+   "sm_pct": 80.7,
+   "dram_pct": 30.3,
+   "dram_MB": 25.426
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 256,
+   "launches": 5,
+   "us": 201.27,
+   "waves": 4.27,
+   "occupancy": 47.7,
+   "sm_pct": 75.7,
+   "dram_pct": 27.2,
+   "dram_MB": 6.114
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 64,
+   "launches": 5,
+   "us": 71.09,
+   "waves": 1.07,
+   "occupancy": 46.4,
+   "sm_pct": 54.4,
+   "dram_pct": 16.7,
+   "dram_MB": 1.325
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 16,
+   "launches": 5,
+   "us": 22.34,
+   "waves": 0.27,
+   "occupancy": 16.6,
+   "sm_pct": 43.0,
+   "dram_pct": 13.1,
+   "dram_MB": 0.328
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 4,
+   "launches": 5,
+   "us": 20.91,
+   "waves": 0.07,
+   "occupancy": 16.6,
+   "sm_pct": 11.3,
+   "dram_pct": 3.5,
+   "dram_MB": 0.082
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 2,
+   "launches": 19,
+   "us": 3.19,
+   "waves": 0.02,
+   "occupancy": 16.1,
+   "sm_pct": 1.7,
+   "dram_pct": 2.6,
+   "dram_MB": 0.009
+  },
+  {
+   "kernel": "k_smooth_tb<double>",
+   "grid": 1,
+   "launches": 5,
+   "us": 20.68,
+   "waves": 0.02,
+   "occupancy": 16.6,
+   "sm_pct": 2.9,
+   "dram_pct": 1.4,
+   "dram_MB": 0.033
+  },
+  {
+   "kernel": "k_smooth<double>",
+   "grid": 1,
+   "launches": 16,
+   "us": 3.16,
+   "waves": 0.01,
+   "occupancy": 16.1,
+   "sm_pct": 0.9,
+   "dram_pct": 1.4,
+   "dram_MB": 0.005
+  }
+ ]
+}
