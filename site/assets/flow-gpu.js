@@ -330,6 +330,10 @@ export async function startGpuFlow(canvas, { onStats } = {}) {
   let visible = true; new IntersectionObserver(es => { visible = es[0].isIntersecting; }).observe(canvas);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduce) { for (let k = 0; k < 200; k++) step(); }
-  else (function loop() { if (visible && !document.hidden) step(); requestAnimationFrame(loop); })();
+  else (function loop() {
+    if (visible && !document.hidden) step();
+    else { fpsT = performance.now(); fpsN = 0; }   // do not count paused time in the fps window
+    requestAnimationFrame(loop);
+  })();
   return true;
 }
