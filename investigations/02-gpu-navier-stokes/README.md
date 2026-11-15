@@ -1,6 +1,6 @@
 # 02. A GPU Navier–Stokes solver
 
-**Status. In progress.** Milestones 1 to 3 complete: verified periodic solver, latency removal and mixed-precision multigrid, wall-bounded lid-driven cavity, a shared-memory smoother, and a WebGPU port running on the website. Hardware-counter profiling is blocked on a Windows permission.
+**Status. In progress.** Milestones 1 to 4 complete: verified periodic solver, latency removal and mixed-precision multigrid, wall-bounded lid-driven cavity, a shared-memory smoother, a WebGPU port running on the website, and a hardware-counter roofline that found and fixed warp divergence in the smoother.
 
 ## Question
 On a bandwidth-limited consumer GPU, how accurately and how fast can a from-scratch incompressible flow solver run, and where does its time go?

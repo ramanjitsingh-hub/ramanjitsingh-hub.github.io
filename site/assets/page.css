@@ -115,3 +115,15 @@ article section + section::before{content:"";display:block;height:9px;margin:0 0
   background-image:repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px 12px),repeating-linear-gradient(90deg,#BDB8AE 0 1px,transparent 1px 120px);
   background-size:100% 4px,100% 9px;background-repeat:no-repeat}
 article section{padding-top:40px}
+
+/* compact navigation (assets/navmenu.js) */
+nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;background:none;border:1px solid var(--rule);border-radius:2px;padding:6px 12px;color:var(--charcoal);cursor:pointer}
+@media (max-width:1000px){
+  nav .rev{display:none}
+  nav .who{grid-row:1}
+  nav .menu{display:block;grid-column:8/13;grid-row:1;align-self:center}
+  nav.open{background:#F6F4EF;border-bottom-color:var(--rule)}
+  nav.open .links{display:flex;flex-direction:column;gap:0;grid-column:1/-1;grid-row:2;margin-top:14px;border-top:1px solid var(--rule)}
+  nav.open .links a{padding:13px 0;border-bottom:1px solid var(--rule);font-size:16px;color:var(--charcoal)}
+}
+@media (max-width:1240px) and (min-width:1001px){nav .links{gap:18px}}

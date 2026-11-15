@@ -182,13 +182,24 @@ section.s{padding:96px 0 20px}
 .contact-fig{grid-column:10/13;grid-row:2/5;align-self:center;max-width:200px;justify-self:end;width:100%}
 .rec-side{margin-top:0}
 @media (max-width:1000px){section.s{padding:64px 0 12px}.ruler{margin-bottom:36px}.demo{margin-top:72px}.rec-side{grid-column:1/-1;margin-top:20px}.margin-fig{max-width:150px;margin-top:16px}.contact-fig{grid-column:1/-1;grid-row:auto;justify-self:start;margin-top:28px}}
+
+/* compact navigation (assets/navmenu.js) */
+nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;background:none;border:1px solid var(--rule);border-radius:2px;padding:6px 12px;color:var(--charcoal);cursor:pointer}
+@media (max-width:1000px){
+  nav .rev{display:none}
+  nav .who{grid-row:1}
+  nav .menu{display:block;grid-column:8/13;grid-row:1;align-self:center}
+  nav.open{background:#F6F4EF;border-bottom-color:var(--rule)}
+  nav.open .links{display:flex;flex-direction:column;gap:0;grid-column:1/-1;grid-row:2;margin-top:14px;border-top:1px solid var(--rule)}
+  nav.open .links a{padding:13px 0;border-bottom:1px solid var(--rule);font-size:16px;color:var(--charcoal)}
+}
 </style>
 </head>
 <body>
 
 <nav id="nav"><div class="wrap grid">
   <a class="who" href="#">Ramanjit Singh</a>
-  <div class="links"><a href="#work">Work</a><a href="#research">Research</a><a href="#live">Live demo</a><a href="#contact">Contact</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a></div>
+  <div class="links"><a href="#work">Work</a><a href="#research">Research</a><a href="#live">Live demo</a><a href="#contact">Contact</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
   <span class="rev mono">rev. 2026.11.15</span>
 </div></nav>
 
@@ -200,7 +211,7 @@ section.s{padding:96px 0 20px}
       <p>I co-founded FemoraAI, a women's health app used by more than 4,600 people, and now Luna, an AI executive assistant for founders. I got my first laptop at six, broke it, and fixed it before anyone noticed. I have been taking systems apart ever since.</p>
       <p>Today I work on software that has to make sense of messy, incomplete information, and on the maths and hardware that make it fast and trustworthy.</p>
     </div>
-    <div class="cta"><a href="#work">What I've built</a><a href="#research">My research</a><a class="soft" href="#live">See something live</a></div>
+    <div class="cta"><a href="#work">What I've built</a><a href="#research">My research</a><a class="soft" href="#live">See something live</a><a href="assets/Ramanjit_Singh_CV.pdf" download>Download CV</a></div>
   </div>
   <figure class="figure-att" aria-label="Clifford attractor computed in the browser">
     <canvas id="attractor"></canvas>
@@ -241,7 +252,7 @@ section.s{padding:96px 0 20px}
   <div class="work">
     <div class="job"><span class="when">Jul 2026 – now</span><div><h3>Luna</h3><div class="role">Co-founder · agent architecture, AI infrastructure, backend</div></div>
       <div><p class="plain">An AI executive assistant that keeps track of everything a founder is juggling, so nothing important slips. Nothing is sent without the user's approval.</p>
-      <p class="tech">130,000+ lines of Python · agent kernel with a context-memory manager · hybrid memory search · 12 integrations</p></div></div>
+      <p class="tech">agent kernel with a context-memory manager · hybrid memory search · routing to the cheapest capable model · 12 integrations, user approval on every write</p></div></div>
     <div class="job"><span class="when">Jan 2025 – Jul 2026</span><div><h3>FemoraAI</h3><div class="role">Co-founder · backend, AI inference, data infrastructure</div></div>
       <div><p class="plain">A women's health app that learned each user's own cycle instead of assuming an average one. More than 4,600 users, with 28.5% still active after four weeks and no money spent on ads.</p>
       <p class="tech">Per-user Kalman filter · 7 Spring Boot microservices on Kafka · led a team of 21</p></div></div>
@@ -375,7 +386,7 @@ section.s{padding:96px 0 20px}
   <div class="mono" style="grid-column:1/9;margin-bottom:20px"><span class="tick"></span>§6 · Contact</div>
   <h2>If any of this is interesting to you, I'd like to hear from you.</h2>
   <div class="contact-fig" data-glyph="lissajous"></div>
-  <div class="ways"><a href="mailto:hackit830@gmail.com">hackit830@gmail.com</a><a href="https://www.linkedin.com/in/ramanjitsingh1">LinkedIn</a><a href="https://github.com/ramanjitsingh-hub">GitHub</a></div>
+  <div class="ways"><a href="mailto:hackit830@gmail.com">hackit830@gmail.com</a><a href="https://www.linkedin.com/in/ramanjitsingh1">LinkedIn</a><a href="https://github.com/ramanjitsingh-hub">GitHub</a><a href="assets/Ramanjit_Singh_CV.pdf" download>CV (PDF)</a></div>
 </div></section>
 </main>
 
@@ -384,6 +395,7 @@ section.s{padding:96px 0 20px}
   <span class="c3">Every figure on this site is computed, none is drawn.</span>
 </div></footer>
 
+<script src="assets/navmenu.js"></script>
 <script src="assets/attractor.js"></script>
 <script src="assets/glyphs.js"></script>
 <script src="assets/lifeline.js"></script>
