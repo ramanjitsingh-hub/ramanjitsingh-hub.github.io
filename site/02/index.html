@@ -51,9 +51,10 @@
     <li><a href="#s5"><span>5</span>Mixed-precision multigrid</a></li>
     <li><a href="#s6"><span>6</span>Walls: the lid-driven cavity</a></li>
     <li><a href="#s7"><span>7</span>A race in the fast smoother</a></li>
-    <li><a href="#s8"><span>8</span>Running in your browser</a></li>
-    <li><a href="#s9"><span>9</span>Limitations and next steps</a></li>
-    <li><a href="#s10"><span>10</span>Reproduce</a></li>
+    <li><a href="#s8"><span>8</span>What the hardware counters say</a></li>
+    <li><a href="#s9"><span>9</span>Running in your browser</a></li>
+    <li><a href="#s10"><span>10</span>Limitations and next steps</a></li>
+    <li><a href="#s11"><span>11</span>Reproduce</a></li>
     <li><a href="#refs"><span>·</span>References</a></li>
   </ol></aside>
 
@@ -98,7 +99,7 @@
   <section id="s4">
     <h2><span class="n">§4</span>Where the time went</h2>
     <p>The first timing run gave a clear picture. In FP64 the pressure projection took 96 to 99% of every step, and a V-cycle cost 1.3 to 2.2 ms whether the grid had 64² or 512² cells. A cost that does not grow with the problem is not arithmetic. Each cycle launched hundreds of tiny kernels, 120 for the 4 × 4 coarse solve alone, and every convergence check copied a reduction back to the host and waited for it.</p>
-    <p>Meanwhile the FP32 advection kernel already ran at 98.9 GB/s, 95% of the measured copy bandwidth, so the stencil code itself was fine. The FP64 version stalled near 42 GB/s. By my hand count of about 55 to 60 operations per cell that is roughly 75 GFLOP/s, the same order as this card's FP64 peak. That reading is an estimate until hardware counters confirm it.</p>
+    <p>Meanwhile the FP32 advection kernel already ran at 98.9 GB/s, 95% of the measured copy bandwidth, so the stencil code itself was fine. The FP64 version stalled near 42 GB/s. By my hand count of about 55 to 60 operations per cell that is roughly 75 GFLOP/s, the same order as this card's FP64 peak. The hardware counters in §8 later confirmed that the kernel is compute bound, but measured 51 GFLOP/s, because my count was too high.</p>
     <p>Each fix below is a command-line switch, so it can be measured on its own. They are added in order.</p>
     <div class="fig wide"><div class="card">
       <div class="fig-head"><span class="mono">fig. 3 &nbsp;ms per time step as each change is added, FP64, median of 5</span>
@@ -118,7 +119,7 @@
       <svg id="thr" viewBox="0 0 860 300" role="img" aria-label="Throughput by configuration"></svg>
       <div class="legend mono" id="thrleg"></div>
     </div>
-    <p class="cap"><b>Figure 4.</b> Each line is the median of 5 repeats. The final configuration is mixed precision plus the blocked smoother. At N = 2048 a step drops from 474 ms in the first timing run to 177 ms.</p></div>
+    <p class="cap"><b>Figure 4.</b> Each line is the median of 5 repeats. The final configuration is mixed precision plus the blocked smoother. At N = 2048 a step drops from <span id="thr-a">·</span> ms in the first timing run to <span id="thr-b">·</span> ms. The blocked-smoother runs use the colour-compacted kernel from §8.</p></div>
   </section>
 
   <section id="s6">
@@ -155,21 +156,43 @@ write interior back to p     <span class="c">// p now partly new</span>
     <p>A block's halo belongs to its neighbours' interiors. When all blocks fit on the GPU at once, as they do on small grids, every block finishes loading before any block writes, and the bug cannot show. At N = 2048 the 4,096 blocks run in waves, so later blocks read values that are already one smoothing call ahead. The fix writes to a second buffer and swaps the pointers. Each level is smoothed exactly twice per V-cycle, so the pointers return to their original buffers after every cycle and the captured CUDA Graph stays valid. After the fix, the full Taylor–Green solution is <b>bitwise identical</b> to the unblocked solver at N = 512 in FP64 and at N = 1024 in mixed precision.</p>
     <table class="res" id="tbtab"></table>
     <p class="cap" style="margin-bottom:22px"><b>Table 2.</b> ms per time step, median of 5. The blocked smoother is applied only to levels with N ≥ 512.</p>
-    <p>Below N = 512 whole time steps got slower with the blocked smoother (5.39 → 7.14 ms at N = 256), even though an isolated V-cycle did not. I could not establish why without hardware counters, so the switch is off there and the question is recorded as open.</p>
+    <p>Below N = 512 whole time steps got slower with the blocked smoother (5.39 → 7.14 ms at N = 256). The counters in §8 explain it. At N = 256 the blocked kernel launches only 64 blocks, about one wave on this GPU's 20 SMs, and on the next level down 16 blocks fill a quarter of a wave. Each block also recomputes its halo, which is a large share of a small tile. The switch therefore stays off below N = 512.</p>
   </section>
 
   <section id="s8">
-    <h2><span class="n">§8</span>Running in your browser</h2>
-    <p>The flow behind the <a href="../">homepage</a> headline is this solver, ported to WebGPU compute shaders: the same MAC grid, conservative advection and multigrid V(2,2), with a single-workgroup coarse solve, on a 256 × 128 periodic grid in 190 dispatches per frame. It differs from the CUDA code in ways the homepage states: FP32, Heun's method instead of SSP-RK3, a fixed two V-cycles per projection warm-started from the previous pressure, linear drag, and a passive dye advected semi-Lagrangian for display. The divergence of the displayed field is read back asynchronously and printed live. On the development laptop it holds 60 fps, the display limit, with \(\max|\nabla\!\cdot\mathbf u| \approx 3\times10^{-4}\). Browsers without WebGPU fall back to a simpler CPU solver<sup class="r"><a href="#refs">[8]</a></sup>.</p>
+    <h2><span class="n">§8</span>What the hardware counters say</h2>
+    <p>Timings say how long a kernel takes, not why. Nsight Compute reads the GPU's own counters for every kernel, including the bytes moved to and from memory, floating-point instructions by type, and how busy each execution pipe was. Placing each kernel on a roofline<sup class="r"><a href="#refs">[9]</a></sup> shows which limit it is pressing against. Every kernel below is profiled on its finest level at N = 1024.</p>
+    <p>The ceilings are measured rather than copied from a datasheet. The profiler locks the SM clock at <span class="mono" id="rf-clk">·</span> GHz. On the busiest FP64 kernel the FP64 pipe was active for exactly <span class="mono" id="rf-cyc">·</span> cycles per warp instruction, so each of the 20 SMs retires two FP64 lanes per cycle. That gives</p>
+    <div class="eq">$$P_{64} = 20 \times 2 \times f_{\text{SM}} = 48.3\ \text{G instr/s},\qquad 96.6\ \text{GFLOP/s if every instruction is an FMA}.$$</div>
+    <p>Memory bandwidth from the memory clock and bus width is <span class="mono" id="rf-bw">·</span> GB/s. The profiler's own percentages imply <span class="mono" id="rf-bwn">·</span> GB/s, which agrees.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 6 &nbsp;roofline, every kernel at N = 1024</span></div>
+      <svg id="roof" viewBox="0 0 860 400" role="img" aria-label="Roofline plot of every solver kernel"></svg>
+      <div class="legend mono"><span><i class="sw" style="background:var(--lavender-deep)"></i>FP64 kernel</span><span>○ FP32 kernel</span><span>→ blocked smoother, before and after the fix below</span></div>
+    </div>
+    <p class="cap"><b>Figure 6.</b> Each point is one kernel. A point on the sloped line is limited by memory bandwidth, and a point under a flat line by arithmetic. The FP32 peak is computed from the lane count and lies far to the right, so every FP32 kernel is memory bound by a wide margin.</p></div>
+    <h3>Three readings</h3>
+    <p><b>Almost everything is memory bound and already near the limit.</b> Every streaming kernel, in both precisions, moves data at 91 to 95% of peak bandwidth. Speed for these kernels can only come from moving fewer bytes, which is what mixed precision and the blocked smoother do.</p>
+    <p><b>The FP64 right-hand side is compute bound.</b> At 1.6 FLOP per byte it sits right of the FP64 ridge, reaching 51 GFLOP/s with the FP64 pipe busy 84% of the time. Only 24% of its FP64 instructions are fused multiply-adds, so its practical ceiling is about 60 GFLOP/s, not 96.6. This settles the estimate in §4.</p>
+    <p><b>The blocked smoother was wasting half its arithmetic.</b> Its FP64 pipe was 82% busy, yet it delivered only 20 GFLOP/s. The cause was divergence. The red-black update skipped cells of the other colour with a branch, so on each FP64 instruction only 13.8 of a warp's 32 lanes did work while the pipe stayed busy issuing them. The fix assigns each thread a cell of the current colour directly. The arithmetic and the update order are unchanged, so the solution stays <b>bitwise identical</b>, checked byte for byte at N = 512 in FP64 and N = 1024 in mixed precision.</p>
+    <table class="res" id="tbctab"></table>
+    <p class="cap" style="margin-bottom:22px"><b>Table 3.</b> ms per V-cycle with the branch and with colour-compacted thread mapping, median of 5 interleaved repeats. The kernel alone runs 2.1× faster in FP64. An isolated mixed-precision V-cycle gains about 1%, because its smoother runs in FP32 and was already close to the memory limit. A full time step at N = 2048, three interleaved repeats, runs <span id="st-f64">·</span> faster in FP64 and <span id="st-mx">·</span> faster in mixed precision. Why the full mixed step gains more than its V-cycle is not yet established.</p>
+    <table class="res" id="rooftab"></table>
+    <p class="cap" style="margin-bottom:22px"><b>Table 4.</b> Hardware counters per kernel on the finest level at N = 1024, with the clock locked by the profiler. FP64 lanes counts the active lanes per FP64 warp instruction, so 32 means no divergence. The coarse solve runs as a single block and is left out.</p>
   </section>
 
   <section id="s9">
-    <h2><span class="n">§9</span>Limitations and next steps</h2>
-    <p>All timings come from one laptop GPU whose clocks vary with temperature. Medians of five repeats are reported, and the spread is under 4% in the ablation, but other hardware will differ. The FP64 compute-bound reading in §4 and the small-grid slowdown in §7 both wait on hardware-counter profiling, which Windows blocks until counter access is enabled by an administrator. The cavity comparison needs a higher-accuracy reference to decide the residual difference from Ghia. Next is a roofline analysis of every kernel, which opens investigation 03, the anatomy of GPU computation.</p>
+    <h2><span class="n">§9</span>Running in your browser</h2>
+    <p>The flow behind the <a href="../">homepage</a> headline is this solver, ported to WebGPU compute shaders: the same MAC grid, conservative advection and multigrid V(2,2), with a single-workgroup coarse solve, on a 256 × 128 periodic grid in 190 dispatches per frame. It differs from the CUDA code in ways the homepage states: FP32, Heun's method instead of SSP-RK3, a fixed two V-cycles per projection warm-started from the previous pressure, linear drag, and a passive dye advected semi-Lagrangian for display. The divergence of the displayed field is read back asynchronously and printed live. On the development laptop it holds 60 fps, the display limit, with \(\max|\nabla\!\cdot\mathbf u| \approx 3\times10^{-4}\). Browsers without WebGPU fall back to a simpler CPU solver<sup class="r"><a href="#refs">[8]</a></sup>.</p>
   </section>
 
   <section id="s10">
-    <h2><span class="n">§10</span>Reproduce</h2>
+    <h2><span class="n">§10</span>Limitations and next steps</h2>
+    <p>All timings come from one laptop GPU whose clocks vary with temperature. Medians of five repeats are reported, and the spread is under 4% in the ablation, but other hardware will differ. The profiler locks the clock at its base value, so rates in §8 are lower than the timings elsewhere on this page. The ratios between kernels are what the analysis relies on. The cavity comparison needs a higher-accuracy reference to decide the residual difference from Ghia. The divergence found in §8 leads into investigation 03, the anatomy of GPU computation, which studies effects like it in isolation.</p>
+  </section>
+
+  <section id="s11">
+    <h2><span class="n">§11</span>Reproduce</h2>
 <pre>cd investigations/02-gpu-navier-stokes
 ./build.sh                     <span class="c"># bin/ns2d, bin/cavity  (CUDA 13.5, sm_86)</span>
 python run_experiments.py      <span class="c"># milestone 1: verification, convergence, multigrid, timing</span>
@@ -264,6 +287,57 @@ function drawThr() {
   $("thrleg").innerHTML = series.map(([k, sty]) => `<span><i class="sw${sty["stroke-dasharray"] ? " dash" : ""}" style="background:${sty.stroke}"></i>${k}</span>`).join("");
 }
 
+const kname = n => n.replace(/^k_/, "").replace(/<.*$/, "") + (/,\s*(0|false)>/.test(n) ? " · branch" : /,\s*(1|true)>/.test(n) ? " · compact" : "");
+function drawRoof() {
+  const svg = $("roof"); svg.innerHTML = "";
+  const R = D.roofline, c = R.ceilings, W = 860, H = 400;
+  const a = axes(svg, { W, H, L: 60, R: 14, T: 26, B: 32, x0: 0.05, x1: 100, y0: 3, y1: 10000, xlog: true, ylog: true,
+    xt: [0.1, 1, 10, 100], yt: [10, 100, 1000, 10000], yfmt: v => v >= 1000 ? v / 1000 + "k" : v,
+    xl: "arithmetic intensity · FLOP per DRAM byte", yl: "GFLOP/s" });
+  const bw = c.dram_GBps_spec, f32 = c.sms * 128 * 2 * c.sm_clock_GHz;     // 128 FP32 lanes per Ampere GA10x SM
+  const roofs = [[f32, C.powderD, "", `FP32 peak ${(f32 / 1000).toFixed(1)} TFLOP/s (from lane count, not measured)`],
+                 [c.fp64_GFLOPs_all_fma, C.lavD, "5 4", `FP64, every instruction an FMA · ${c.fp64_GFLOPs_all_fma}`],
+                 [c.fp64_GFLOPs_no_fma, C.lavD, "", `FP64, no FMAs · ${c.fp64_GFLOPs_no_fma}`]];
+  mk(svg, "path", { d: poly([[a.sx(0.05), a.sy(bw * 0.05)], [a.sx(f32 / bw), a.sy(f32)]]), stroke: C.ink, "stroke-width": 1.3, fill: "none" });
+  txt(svg, a.sx(0.09), a.sy(bw * 0.09) - 10, `DRAM ${bw} GB/s`, { fill: C.ink, transform: `rotate(-${Math.atan2(a.sy(1) - a.sy(10), a.sx(10) - a.sx(1)) * 180 / Math.PI} ${a.sx(0.09)} ${a.sy(bw * 0.09) - 10})` });
+  roofs.forEach(([p, col, dash, lab]) => {
+    mk(svg, "line", { x1: a.sx(p / bw), x2: W - 14, y1: a.sy(p), y2: a.sy(p), stroke: col, "stroke-width": 1.3, "stroke-dasharray": dash });
+    txt(svg, W - 16, a.sy(p) - 6, lab, { "text-anchor": "end", fill: col });
+  });
+  const pts = R.kernels.filter(k => k.grid > 1).map(k => {
+    const f64 = k.prec === "f64", x = f64 ? k.intensity64 : k.intensity32, y = f64 ? k.GFLOPs64 : k.GFLOPs32;
+    return { k, f64, X: a.sx(x), Y: a.sy(y), name: kname(k.kernel) };
+  });
+  const tbB = pts.find(p => p.f64 && /branch/.test(p.name)), tbC = pts.find(p => p.f64 && /compact/.test(p.name));
+  if (tbB && tbC) {
+    mk(svg, "defs", {}).innerHTML = `<marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L8,4L0,8z" fill="${C.lavD}"/></marker>`;
+    mk(svg, "line", { x1: tbB.X, y1: tbB.Y - 5, x2: tbC.X, y2: tbC.Y + 6, stroke: C.lavD, "stroke-width": 1.2, "marker-end": "url(#ah)" });
+  }
+  pts.forEach(p => mk(svg, "circle", { cx: p.X, cy: p.Y, r: 4, fill: p.f64 ? C.lavD : "#FBFAF7", stroke: p.f64 ? C.lavD : C.powderD, "stroke-width": 1.5 }));
+  const lab = { "rhs": [6, 20], "smooth_tb · compact": [-9, -9], "smooth_tb · branch": [9, 4], "smooth": [6, 20] };
+  pts.filter(p => p.f64 && lab[p.name]).forEach(p => txt(svg, p.X + lab[p.name][0], p.Y + lab[p.name][1], p.name,
+    { fill: C.ink, "text-anchor": lab[p.name][0] < 0 ? "end" : "start" }));
+  pts.filter(p => !p.f64 && p.name === "rhs").forEach(p => txt(svg, p.X + 8, p.Y + 4, "rhs · FP32", { fill: C.powderD }));
+}
+function drawTbcTable() {
+  const t = D.tb_compact, ns = [512, 1024, 2048];
+  let h = "<tr><th>precision</th>" + ns.map(n => `<th>N = ${n}</th>`).join("") + "</tr>";
+  [["FP64", "f64"], ["mixed", "mixed"]].forEach(([name, p]) => {
+    h += `<tr><td>${name}</td>` + ns.map(n => { const r = t[`${p}_${n}`];
+      return `<td class="${p === "f64" ? "best" : ""}">${r.branch.toFixed(2)} → ${r.compact.toFixed(2)} · ${r.speedup.toFixed(2)}×</td>`; }).join("") + "</tr>";
+  });
+  $("tbctab").innerHTML = h;
+}
+function drawRoofTable() {
+  let h = "<tr><th>kernel</th><th>prec</th><th>µs</th><th>GB/s</th><th>DRAM %</th><th>GFLOP/s</th><th>FP64 pipe %</th><th>FP64 lanes</th></tr>";
+  D.roofline.kernels.filter(k => k.grid > 1).forEach(k => {
+    const f64 = k.prec === "f64", hot = f64 && (k.fp64_pipe_pct_elapsed > 60);
+    h += `<tr><td>${kname(k.kernel)}</td><td>${k.prec}</td><td>${k.time_us.toFixed(0)}</td><td>${k.GBps.toFixed(1)}</td><td class="${k.dram_pct > 90 ? "best" : ""}">${k.dram_pct.toFixed(0)}</td>` +
+      `<td>${(f64 ? k.GFLOPs64 : k.GFLOPs32).toFixed(1)}</td><td class="${hot ? "best" : ""}">${f64 ? k.fp64_pipe_pct_elapsed.toFixed(0) : "·"}</td><td>${k.fp64_lanes != null ? k.fp64_lanes.toFixed(1) : "·"}</td></tr>`;
+  });
+  $("rooftab").innerHTML = h;
+}
+
 function drawCav() {
   const g = D.ghia, cases = D.cavity.filter(c => String(c.Re) === re);
   const col = { 64: C.faint, 128: C.powderD, 256: C.lavD };
@@ -314,6 +388,12 @@ fetch("../data/inv02.json").then(r => r.json()).then(d => {
   $("ver64").textContent = d.verification.f64.toExponential(1).replace("e-", " × 10⁻").replace(/⁻(\d+)/, (m, p) => "⁻" + sup(p));
   $("ord64").textContent = d.convergence.f64.order_linf.map(v => v.toFixed(3)).join(", ");
   drawConv(); drawRes(); drawAbl(); drawThr(); drawCav(); drawCavTable(); drawTbTable();
+  const c = d.roofline.ceilings;
+  $("rf-clk").textContent = c.sm_clock_GHz.toFixed(3); $("rf-cyc").textContent = c.fp64_cycles_per_warp_inst.toFixed(1);
+  $("rf-bw").textContent = c.dram_GBps_spec.toFixed(1); $("rf-bwn").textContent = c.dram_GBps_ncu.toFixed(1);
+  drawRoof(); drawRoofTable(); drawTbcTable();
+  const st = d.tb_step; $("st-f64").textContent = st.f64_2048.speedup.toFixed(2) + "×"; $("st-mx").textContent = st.mixed_2048.speedup.toFixed(2) + "×";
+  $("thr-a").textContent = d.throughput["f64 (milestone 1)"][4].toFixed(0); $("thr-b").textContent = d.throughput["mixed + blocked smoother"][4].toFixed(0);
 });
 
 document.addEventListener("DOMContentLoaded", () => {

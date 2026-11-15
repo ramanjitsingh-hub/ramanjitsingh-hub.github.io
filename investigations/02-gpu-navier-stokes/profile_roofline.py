@@ -4,8 +4,13 @@ Needs GPU performance counters enabled (NVIDIA Control Panel, Developer, Manage 
 Nsight Compute locks the SM clock to base frequency while profiling, so peaks are derived from the counters
 themselves (achieved rate divided by the reported fraction of peak), not from datasheet numbers.
 
-    python profile_roofline.py
+    python profile_roofline.py                 # every kernel
+    python profile_roofline.py --only k_smooth  # re-profile matching jobs, merge into the existing json
+
+ncu matches --kernel-name against the base function name, without template arguments, so patterns
+are anchored (^k_smooth$) rather than written as k_smooth<.
 """
+import sys
 import csv
 import io
 import json
@@ -21,7 +26,10 @@ METRICS = ["gpu__time_duration.sum", "launch__grid_size", "dram__bytes_read.sum"
            "sm__throughput.avg.pct_of_peak_sustained_elapsed", "dram__throughput.avg.pct_of_peak_sustained_elapsed",
            "sm__pipe_fp64_cycles_active.avg.pct_of_peak_sustained_active", "sm__warps_active.avg.pct_of_peak_sustained_active",
            "sm__pipe_fma_cycles_active.avg.pct_of_peak_sustained_active"] + \
-          [f"sm__sass_thread_inst_executed_op_{o}_pred_on.sum" for o in OPS]
+          [f"sm__sass_thread_inst_executed_op_{o}_pred_on.sum" for o in OPS] +           ["sm__cycles_elapsed.avg.per_second", "device__attribute_multiprocessor_count", "sm__inst_executed_pipe_fp64.avg",
+           "sm__pipe_fp64_cycles_active.avg", "sm__pipe_fp64_cycles_active.avg.pct_of_peak_sustained_elapsed",
+           "smsp__thread_inst_executed_per_inst_executed.ratio", "device__attribute_memory_clock_rate",
+           "device__attribute_global_memory_bus_width"]
 
 # (kernel regex, mode args, label)
 JOBS = []
@@ -29,7 +37,8 @@ for prec in ("f64", "f32"):
     bench = ["bench", "--N", N, "--prec", prec, "--steps", 1]
     mg = ["mg", "--N", N, "--prec", prec]
     JOBS += [("k_rhs", bench, prec), ("k_stage", bench, prec), ("k_div", bench, prec), ("k_correct", bench, prec),
-             ("k_smooth<", mg + ["--tb", 0], prec), ("k_smooth_tb", mg + ["--tbmin", 32], prec), ("k_resid", mg, prec),
+             ("^k_smooth$", mg + ["--tb", 0], prec), ("k_smooth_tb", mg + ["--tbmin", 32], prec),
+             ("k_smooth_tb", mg + ["--tbmin", 32, "--tbcompact", 0], prec), ("k_resid", mg, prec),
              ("k_restrict", mg, prec), ("k_prolong_add", mg, prec), ("k_coarse", mg, prec)]
 
 
@@ -41,7 +50,7 @@ def num(x):
 
 
 def profile(regex, args):
-    cmd = [NCU, "--kernel-name", f"regex:{regex}", "--launch-skip", "30", "--launch-count", "12",
+    cmd = [NCU, "--kernel-name", f"regex:{regex}", "--launch-skip", "30", "--launch-count", "40",
            "--metrics", ",".join(METRICS), "--csv", "--page", "raw", EXE, *map(str, args)]
     out = subprocess.run(cmd, capture_output=True, text=True, timeout=1800).stdout
     lines = [l for l in out.splitlines() if l.startswith('"')]
@@ -63,26 +72,51 @@ def profile(regex, args):
             "dram_pct": round(avg["dram__throughput.avg.pct_of_peak_sustained_elapsed"], 1),
             "fp64_pipe_pct": round(avg["sm__pipe_fp64_cycles_active.avg.pct_of_peak_sustained_active"], 1),
             "fma_pipe_pct": round(avg["sm__pipe_fma_cycles_active.avg.pct_of_peak_sustained_active"], 1),
-            "occupancy_pct": round(avg["sm__warps_active.avg.pct_of_peak_sustained_active"], 1)}
+            "occupancy_pct": round(avg["sm__warps_active.avg.pct_of_peak_sustained_active"], 1),
+            "fp64_pipe_pct_elapsed": round(avg["sm__pipe_fp64_cycles_active.avg.pct_of_peak_sustained_elapsed"], 1),
+            "fp64_warp_inst_per_sm": avg["sm__inst_executed_pipe_fp64.avg"],
+            "fp64_pipe_cycles_per_sm": avg["sm__pipe_fp64_cycles_active.avg"],
+            "lanes_per_inst": round(avg["smsp__thread_inst_executed_per_inst_executed.ratio"], 2),
+            # active lanes per FP64 warp instruction: FP64 thread instructions / FP64 warp instructions (32 = no divergence)
+            "fp64_lanes": round(sum(avg[f"sm__sass_thread_inst_executed_op_{o}_pred_on.sum"] for o in ("dadd", "dmul", "dfma"))
+                                / (avg["sm__inst_executed_pipe_fp64.avg"] * avg["device__attribute_multiprocessor_count"]), 2)
+                          if avg["sm__inst_executed_pipe_fp64.avg"] else None,
+            "sm_clock_hz": avg["sm__cycles_elapsed.avg.per_second"], "sms": int(avg["device__attribute_multiprocessor_count"]),
+            "mem_clock_khz": avg["device__attribute_memory_clock_rate"], "bus_bits": int(avg["device__attribute_global_memory_bus_width"])}
 
 
 def main():
-    res = {"N": N, "kernels": []}
+    only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None
+    out = HERE / "results" / "roofline.json"
+    res = json.loads(out.read_text()) if only and out.exists() else {"N": N, "kernels": []}
     for regex, args, prec in JOBS:
+        if only and only not in regex:
+            continue
         r = profile(regex, args)
         if r:
-            r["prec"] = prec; res["kernels"].append(r)
+            r["prec"] = prec
+            res["kernels"] = [k for k in res["kernels"] if not (k["kernel"] == r["kernel"] and k["prec"] == prec)] + [r]
             print(f"{prec} {r['kernel']:28s} grid={r['grid']:6d} {r['time_us']:9.2f}us {r['GBps']:7.2f} GB/s dram {r['dram_pct']:5.1f}% "
                   f"sm {r['sm_pct']:5.1f}% fp64pipe {r['fp64_pipe_pct']:5.1f}% AI64 {r['intensity64']} AI32 {r['intensity32']}", flush=True)
         else:
             print("no data for", regex, prec, flush=True)
-    # implied peaks at the profiling clock
-    bw = [k["GBps"] / (k["dram_pct"] / 100) for k in res["kernels"] if k["dram_pct"] > 40]
-    f64 = [k["GFLOPs64"] / (k["fp64_pipe_pct"] / 100) for k in res["kernels"] if k["fp64_pipe_pct"] > 40 and k["GFLOPs64"] > 0]
-    res["implied_peak_GBps"] = round(sum(bw) / len(bw), 1) if bw else None
-    res["implied_peak_GFLOPs64"] = round(sum(f64) / len(f64), 1) if f64 else None
-    print("implied peaks at profiling clock:", res["implied_peak_GBps"], "GB/s,", res["implied_peak_GFLOPs64"], "FP64 GFLOP/s")
-    (HERE / "results" / "roofline.json").write_text(json.dumps(res, indent=1))
+    # Ceilings at the profiling clock, from counters rather than datasheets.
+    #  memory: memory clock x 2 (double data rate) x bus width; cross-checked against ncu's own dram % of peak.
+    #  FP64: SM clock x SM count x warp instructions per cycle, where the pipe's cycles per FP64 warp
+    #  instruction are measured (pipe-active cycles / FP64 instructions) on the kernel with the most FP64 work.
+    ks = res["kernels"]
+    k0 = max(ks, key=lambda k: k.get("fp64_warp_inst_per_sm", 0))
+    cyc = k0["fp64_pipe_cycles_per_sm"] / k0["fp64_warp_inst_per_sm"]
+    clk, sms = k0["sm_clock_hz"], k0["sms"]
+    inst_rate = sms * clk / cyc * 32                       # FP64 thread instructions per second
+    bw_spec = k0["mem_clock_khz"] * 1e3 * 2 * k0["bus_bits"] / 8 / 1e9
+    bw_ncu = [k["GBps"] / (k["dram_pct"] / 100) for k in ks if k["dram_pct"] > 40]
+    res["ceilings"] = {"sm_clock_GHz": round(clk / 1e9, 4), "sms": sms, "fp64_cycles_per_warp_inst": round(cyc, 3),
+                       "fp64_GFLOPs_all_fma": round(2 * inst_rate / 1e9, 1), "fp64_GFLOPs_no_fma": round(inst_rate / 1e9, 1),
+                       "dram_GBps_spec": round(bw_spec, 1), "dram_GBps_ncu": round(sum(bw_ncu) / len(bw_ncu), 1)}
+    res.pop("implied_peak_GBps", None); res.pop("implied_peak_GFLOPs64", None)
+    print("ceilings:", res["ceilings"])
+    out.write_text(json.dumps(res, indent=1))
 
 
 if __name__ == "__main__":

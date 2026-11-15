@@ -169,7 +169,7 @@ __global__ void k_copy4(const float4* __restrict__ a, float4* __restrict__ b, si
 // all half-sweeps of one smoothing call are done there, and the grid is read and written once.
 // Same arithmetic in the same colour order as k_smooth. Writes go to a second buffer: writing in
 // place would race with neighbouring blocks that are still reading their halos.
-template <class T>
+template <class T, bool COMPACT>
 __global__ void k_smooth_tb(const T* __restrict__ p, T* __restrict__ pout, const T* __restrict__ f, int n, T h2, int halfsweeps) {
   const int TI = 32, HALO = 4, W = TI + 2 * HALO;
   __shared__ T sp[W * W], sf[W * W];
@@ -180,12 +180,29 @@ __global__ void k_smooth_tb(const T* __restrict__ p, T* __restrict__ pout, const
     sp[t] = p[gj * n + gi]; sf[t] = f[gj * n + gi];
   }
   __syncthreads();
+  // Threads are mapped onto cells of the current colour only. Skipping the other colour with a
+  // branch (the first version) left half of every warp idle on each FP64 instruction. n is even,
+  // so wrapping preserves parity and the colour of local cell (lx, ly) is (bx + by + lx + ly) & 1.
+  if (!COMPACT) {                                       // first version, kept for the A/B (--tbcompact 0)
+    for (int s = 0; s < halfsweeps; s++) {
+      int color = s & 1, lo = s + 1, hi = W - 2 - s;
+      for (int t = tid; t < W * W; t += nt) {
+        int lx = t % W, ly = t / W;
+        if (lx < lo || lx > hi || ly < lo || ly > hi) continue;
+        if (((wr(bx + lx, n) + wr(by + ly, n)) & 1) != color) continue;
+        sp[t] = T(0.25) * (sp[t - 1] + sp[t + 1] + sp[t - W] + sp[t + W] - h2 * sf[t]);
+      }
+      __syncthreads();
+    }
+  } else
   for (int s = 0; s < halfsweeps; s++) {
     int color = s & 1, lo = s + 1, hi = W - 2 - s;      // valid region shrinks by one cell per half-sweep
-    for (int t = tid; t < W * W; t += nt) {
-      int lx = t % W, ly = t / W;
-      if (lx < lo || lx > hi || ly < lo || ly > hi) continue;
-      if (((wr(bx + lx, n) + wr(by + ly, n)) & 1) != color) continue;
+    int rows = hi - lo + 1, hw = (rows + 1) / 2;
+    for (int k = tid; k < rows * hw; k += nt) {
+      int ly = lo + k / hw;
+      int lx = lo + ((color - (bx + by + ly + lo)) & 1) + 2 * (k % hw);
+      if (lx > hi) continue;
+      int t = ly * W + lx;
       sp[t] = T(0.25) * (sp[t - 1] + sp[t + 1] + sp[t - W] + sp[t + W] - h2 * sf[t]);
     }
     __syncthreads();
@@ -232,7 +249,7 @@ static void reduce(const T* x, int m, double& sum, double& mx) {
 }
 
 // Ablation switches. All false reproduces the milestone-1 solver.
-struct Cfg { bool graph = true, coarse1 = true, warm = true, adaptive = true, tb = true; int tbmin = 512; };
+struct Cfg { bool graph = true, coarse1 = true, warm = true, adaptive = true, tb = true; int tbmin = 512; bool tbcompact = true; };
 
 static int cycles_for(double rtol) { return std::max(1, (int)ceil(log(rtol) / log(0.07)) - 1); }
 
@@ -258,7 +275,8 @@ struct MG {
   void smooth(int l, int sweeps) {
     T h2 = (T)(h(l) * h(l));
     if (cfg.tb && n[l] >= cfg.tbmin && n[l] >= 32 && sweeps <= 2) {   // default tbmin 512, see README
-      k_smooth_tb<T><<<dim3(n[l] / 32, n[l] / 32), B2, 0, S>>>(p[l], p2[l], f[l], n[l], h2, 2 * sweeps);
+      if (cfg.tbcompact) k_smooth_tb<T, true><<<dim3(n[l] / 32, n[l] / 32), B2, 0, S>>>(p[l], p2[l], f[l], n[l], h2, 2 * sweeps);
+      else k_smooth_tb<T, false><<<dim3(n[l] / 32, n[l] / 32), B2, 0, S>>>(p[l], p2[l], f[l], n[l], h2, 2 * sweeps);
       std::swap(p[l], p2[l]);
       return;
     }
@@ -420,7 +438,7 @@ struct Solver {
   }
 };
 
-static void cfg_json(const Cfg& c) { printf("\"cfg\":{\"graph\":%d,\"coarse1\":%d,\"warm\":%d,\"adaptive\":%d,\"tb\":%d}", c.graph, c.coarse1, c.warm, c.adaptive, c.tb); }
+static void cfg_json(const Cfg& c) { printf("\"cfg\":{\"graph\":%d,\"coarse1\":%d,\"warm\":%d,\"adaptive\":%d,\"tb\":%d,\"tbcompact\":%d}", c.graph, c.coarse1, c.warm, c.adaptive, c.tb, c.tbcompact); }
 
 template <class T>
 static void run(const Opt& o, bool mixed) {
@@ -500,7 +518,8 @@ int main(int argc, char** argv) {
     else if (a == "--warm") o.cfg.warm = atoi(b.c_str()); else if (a == "--adaptive") o.cfg.adaptive = atoi(b.c_str());
     else if (a == "--tb") o.cfg.tb = atoi(b.c_str());
     else if (a == "--tbmin") o.cfg.tbmin = atoi(b.c_str());
-    else if (a == "--baseline" && atoi(b.c_str())) o.cfg = Cfg{false, false, false, false, false, 512};
+    else if (a == "--tbcompact") o.cfg.tbcompact = atoi(b.c_str());
+    else if (a == "--baseline" && atoi(b.c_str())) o.cfg = Cfg{false, false, false, false, false, 512, false};
   }
   CK(cudaStreamCreate(&S));
   CK(cudaMalloc(&d_psum, RB * sizeof(double))); CK(cudaMalloc(&d_pmax, RB * sizeof(double)));

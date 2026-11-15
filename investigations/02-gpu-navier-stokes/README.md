@@ -119,21 +119,43 @@ Deviations are measured at Ghia's 17 centreline points, excluding the imposed wa
 
 | ms per step, median of 5 | N = 512 | N = 1024 | N = 2048 |
 |---|---|---|---|
-| FP64 | 22.73 | 92.55 | 392.1 |
-| FP64 + blocked smoother | 17.27 | 61.77 | 245.5 |
-| mixed | 15.97 | 64.20 | 276.0 |
-| mixed + blocked smoother | **11.98** | **43.03** | **177.5** |
+| FP64 | 22.76 | 88.65 | 368.6 |
+| FP64 + blocked smoother | 15.17 | 52.66 | 221.3 |
+| mixed | 15.85 | 62.29 | 267.0 |
+| mixed + blocked smoother | **12.09** | **44.18** | **190.4** |
 
-The blocked smoother is applied only to levels with N ≥ 512. Below that, whole time steps got slower (5.39 → 7.14 ms at N = 256) even though an isolated V-cycle did not. I could not establish why without hardware counters, so the switch is left off there and the cause is recorded as open. Against the milestone 1 baseline, a step is now **13.5× faster at N = 128, 4.8× at N = 512 and 2.7× at N = 2048**, with the same answer. The full mixed-precision Taylor–Green run at N = 1024 takes 57 s, down from 85 s in milestone 2 and 123 s in FP64.
+Re-measured on 2026-11-15 with the colour-compacted smoother from section 4 (`results/milestone3_perf.json`). The first session's numbers, with the branchy smoother, are kept in `results/milestone3_perf_branch.json`. Between the two sessions the same configuration can differ by up to 20% on this laptop GPU. For example mixed precision at N = 128 does not use the blocked smoother at all and measured 2.28 ms in one session and 2.81 ms in the other. Comparisons in this README are therefore only made within one session, or as interleaved A/B runs.
+
+The blocked smoother is applied only to levels with N ≥ 512. Below that, whole time steps got slower (5.39 → 7.14 ms at N = 256). Hardware counters (section 4) show why. At N = 256 the blocked kernel launches 64 blocks, about one wave on 20 SMs, and the next level down launches 16 blocks, a quarter of a wave, while every block also recomputes its halo. Against the milestone 1 baseline, a step was **13.5× faster at N = 128, 4.8× at N = 512 and 2.7× at N = 2048** in the first session, and 11.9×, 4.9× and 2.4× when re-measured on 2026-11-15, with the same answer. The full mixed-precision Taylor–Green run at N = 1024 takes 57 s, down from 85 s in milestone 2 and 123 s in FP64.
 
 ### 3c. WebGPU port on the website
 `site/assets/flow-gpu.js` ports the solver to WGSL compute shaders: MAC grid, conservative advection, multigrid V(2,2) with a single-workgroup coarse solve, 190 dispatches per frame on a 256 × 128 periodic grid. It differs from the CUDA solver in ways stated on the page: FP32, Heun (RK2) instead of SSP-RK3, a fixed two V-cycles per projection warm-started from the previous pressure, linear drag, and a passive dye advected semi-Lagrangian for display. On this laptop in Chrome it runs at 60 fps (display-capped) with max |∇·u| ≈ 3 × 10⁻⁴ read back asynchronously. Browsers without WebGPU fall back to the earlier CPU solver. That fallback path has not been tested in a browser without WebGPU yet.
 
-## Not done yet, and why
-- **Hardware-counter profiling.** Nsight Compute 2026.4 is installed but Windows blocks counter access (`ERR_NVGPUCTRPERM`) until it is enabled in the NVIDIA Control Panel with administrator rights.
+## 4. Hardware counters (milestone 4)
+
+`profile_roofline.py` profiles every kernel on its finest level at N = 1024 with Nsight Compute and writes `results/roofline.json`.
+
+**Ceilings are measured, not taken from a datasheet.** The profiler locks the SM clock at 1.207 GHz. On `k_rhs<double>` the FP64 pipe is active for exactly 16.0 cycles per FP64 warp instruction, so each of the 20 SMs retires 2 FP64 lanes per cycle. That is 48.3 G FP64 instructions per second, or 96.6 GFLOP/s if every instruction were an FMA. DRAM bandwidth from memory clock and bus width is 112.0 GB/s, and Nsight's own percentages imply 111.8 GB/s.
+
+| finding | evidence |
+|---|---|
+| Every streaming kernel, both precisions, is memory bound and near the limit | 91 to 95% of peak DRAM throughput |
+| `k_rhs<double>` is compute bound | 1.6 FLOP/byte, 50.6 GFLOP/s, FP64 pipe busy 84%; only 24% of its FP64 instructions are FMAs, so its practical ceiling is about 60 GFLOP/s. The hand estimate of 75 GFLOP/s in milestone 1 was too high |
+| The blocked smoother wasted half its FP64 lanes | 13.8 active lanes per FP64 warp instruction, FP64 pipe 82% busy, 20.2 GFLOP/s |
+
+**Divergence fix.** The red-black update skipped cells of the other colour with a branch, so every FP64 instruction ran with fewer than half its lanes active. `k_smooth_tb<T, true>` maps threads onto same-colour cells only. Since N is even, wrapping preserves parity and the colour of local cell (lx, ly) is (bx + by + lx + ly) & 1. Arithmetic and update order are unchanged. The Taylor–Green solutions at N = 512 (FP64) and N = 1024 (mixed) are byte-identical to the previous kernel and to the unblocked solver (checked with `--dump` and `cmp`).
+
+| `run_tb_compact.py`, median of interleaved repeats | N = 512 | N = 1024 | N = 2048 |
+|---|---|---|---|
+| FP64 V-cycle, ms, branch → compact | 0.772 → 0.575 (1.34×) | 2.587 → 1.819 (1.42×) | 9.602 → 6.909 (1.39×) |
+| mixed V-cycle, ms | 1.005× | 1.014× | 1.006× |
+| full time step, ms | | | FP64 278.0 → 221.3 (1.26×), mixed 214.9 → 190.7 (1.13×) |
+
+The kernel alone goes from 750 µs to 354 µs (2.1×), at 31.1 active lanes per FP64 instruction and 42.7 GFLOP/s. The old kernel stays available as `--tbcompact 0`. An isolated mixed V-cycle barely changes because its smoother runs in FP32 and was already near the memory limit. A full mixed time step nevertheless gains 1.13×, and the reason is not yet established.
+
+The plain red-black smoother `k_smooth` has the same divergence (16.0 lanes) but is limited by DRAM at 93% of peak, so fixing it would not help.
 
 ## Next
-1. Hardware-counter roofline of every kernel, as soon as counter access is enabled.
-2. Explain the small-grid slowdown of the blocked smoother with those counters.
-3. A higher-accuracy reference for the cavity to settle the residual difference from Ghia.
-4. Investigation 03, the anatomy of GPU computation, built on these kernels.
+1. A higher-accuracy reference for the cavity to settle the residual difference from Ghia.
+2. Find why a full mixed time step gains more from the divergence fix than its V-cycle does.
+3. Investigation 03, the anatomy of GPU computation, built on these kernels and on the divergence finding.

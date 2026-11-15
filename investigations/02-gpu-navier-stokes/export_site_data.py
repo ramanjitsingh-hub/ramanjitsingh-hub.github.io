@@ -39,6 +39,14 @@ out = {
                                   "v_max_abs_dev", "v_rms_dev", "psi_min", "psi_min_xy", "u_x05", "v_y05")} for c in cav["cases"]],
     "ghia": {k: ghia[k] for k in ("u_centerline_x0.5", "v_centerline_y0.5", "reference")},
 }
+roof = json.loads((R / "roofline.json").read_text())
+out["roofline"] = {"N": roof["N"], "ceilings": roof["ceilings"],
+                   "kernels": [{k: x.get(k) for k in ("kernel", "prec", "grid", "time_us", "dram_bytes", "GBps", "GFLOPs64", "GFLOPs32",
+                                                  "intensity64", "intensity32", "dram_pct", "fp64_pipe_pct_elapsed", "lanes_per_inst", "fp64_lanes",
+                                                  "occupancy_pct")} for x in roof["kernels"]]}
+tbc = json.loads((R / "tb_compact.json").read_text())
+out["tb_compact"] = {k: {kk: v[kk] for kk in ("branch", "compact", "speedup")} for k, v in tbc["vcycle_ms"].items()}
+out["tb_step"] = {k: {kk: v[kk] for kk in ("branch", "compact", "speedup")} for k, v in tbc["step_ms"].items()}
 SITE.mkdir(parents=True, exist_ok=True)
 (SITE / "inv02.json").write_text(json.dumps(out, separators=(",", ":")))
 print("wrote", SITE / "inv02.json", round((SITE / "inv02.json").stat().st_size / 1024, 1), "KB")
