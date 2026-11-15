@@ -28,9 +28,9 @@
 <header class="top"><div class="wrap grid">
   <div class="kicker mono"><span class="tick"></span>Investigation 02 · GPU Navier–Stokes</div>
   <h1>A Navier–Stokes solver on a 4 GB laptop GPU</h1>
-  <p class="abstract">A from-scratch CUDA solver for two-dimensional incompressible flow. It is verified to machine precision against independent code, exactly second order in space, and validated on the lid-driven cavity. Then it is made 13.5× faster on small grids and 2.7× on large ones by removing launch latency, moving the multigrid to mixed precision, and blocking the smoother in shared memory. The answer stays the same throughout, and at times identical to the last bit.</p>
+  <p class="abstract">A from-scratch CUDA solver for two-dimensional incompressible flow. It is verified to machine precision against independent code, exactly second order in space, and validated on the lid-driven cavity. Then it is made 13.5× faster on small grids and about 2.5× on large ones by removing launch latency, moving the multigrid to mixed precision, and blocking the smoother in shared memory, and hardware counters show where the remaining time goes. The answer stays the same throughout, and at times identical to the last bit.</p>
   <div class="side">
-    <div class="status mono"><i></i>in progress · milestones 1 to 3 complete</div>
+    <div class="status mono"><i></i>in progress · milestones 1 to 4 complete</div>
     <div class="datanote"><b>Hardware.</b> NVIDIA RTX 3050 Laptop, 4 GB, sm_86, 20 SMs, 64-bit memory bus. Measured device copy bandwidth <b id="bw">·</b>. FP64 runs at 1/64 of FP32 on this card.</div>
     <dl class="meta">
       <dt>language</dt><dd>CUDA C++17, Python</dd>

@@ -189,7 +189,7 @@ section.s{padding:96px 0 20px}
 <nav id="nav"><div class="wrap grid">
   <a class="who" href="#">Ramanjit Singh</a>
   <div class="links"><a href="#work">Work</a><a href="#research">Research</a><a href="#live">Live demo</a><a href="#contact">Contact</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a></div>
-  <span class="rev mono">rev. 2026.11.14</span>
+  <span class="rev mono">rev. 2026.11.15</span>
 </div></nav>
 
 <header class="about" id="about"><div class="wrap grid">
@@ -307,7 +307,7 @@ section.s{padding:96px 0 20px}
     <div class="text">
       <div class="num">02</div>
       <h3>How fast can a laptop simulate a fluid, and still be right?</h3>
-      <div class="status mono"><i></i>in progress · three milestones complete</div>
+      <div class="status mono"><i></i>in progress · four milestones complete</div>
       <p class="plain">I wrote a program that simulates how fluids move, from scratch, for a laptop graphics card. First I proved it gives the right answer against known solutions. Then I found where its time went and made it much faster without changing a single digit of the result.</p>
       <p class="techline">CUDA Navier–Stokes solver, multigrid pressure solve, mixed precision, shared-memory smoother, validated on the lid-driven cavity.</p>
       <a class="more" href="02/">Read investigation 02 →</a>
@@ -322,9 +322,27 @@ section.s{padding:96px 0 20px}
     </div>
   </div>
 
+  <div class="inv">
+    <div class="text">
+      <div class="num">03</div>
+      <h3>Why is some graphics-card code fast and some slow?</h3>
+      <div class="status mono"><i></i>in progress · two milestones complete</div>
+      <p class="plain">Programmers follow a few rules of thumb for graphics cards. I turned each rule into a formula, built a small test that isolates it, and measured. Most rules hold to within a few percent. Where one did not, I designed a second experiment to find out why, and found things like a hidden 16-entry address cache inside the chip.</p>
+      <p class="techline">Microbenchmarks with stated models: memory latency, Little's law, coalescing, the roofline, warp divergence, shared-memory banks and address translation, cross-checked with hardware counters.</p>
+      <a class="more" href="03/">Read investigation 03 →</a>
+    </div>
+    <div class="side">
+      <div class="bignum">
+        <div><b id="i3-n">328</b><span>measured configurations, each tested against a model written down first</span></div>
+        <div><b>0.5%</b><span>largest error of the divergence model over 16 cases</span></div>
+        <div><b>16 × 2 MB</b><span>a hidden address cache, measured from outside the chip</span></div>
+        <div><b>16 / 19</b><span>cycles the double-precision unit is busy per instruction, which explains a missing 16%</span></div>
+      </div>
+    </div>
+  </div>
+
   <div class="prop">
     <div class="h">next questions</div>
-    <div class="row"><span class="k">03</span><h4><a href="03/">The anatomy of a graphics card</a></h4><p>Small experiments that show exactly why some GPU code is fast and some is slow, measured on real hardware counters.</p><span class="tag mono">in progress</span></div>
     <div class="row"><span class="k">04</span><h4>Can neural networks replace physics solvers?</h4><p>A fair test of neural operators against the solver from 02, counting training cost too.</p><span class="tag mono">proposed</span></div>
     <div class="row"><span class="k">05</span><h4>The shape of learning</h4><p>Measuring the landscape a neural network moves through while it trains.</p><span class="tag mono">proposed</span></div>
   </div>
