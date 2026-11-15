@@ -1,0 +1,35 @@
+// Life on a logarithmic time axis: x = 1 - log(T - t) / log(T - t0), T = 2029.
+// Recent years carry most of the events, so the log scale spreads them out.
+(function () {
+  const svg = document.getElementById("lifeline");
+  if (!svg) return;
+  const NS = "http://www.w3.org/2000/svg", T = 2029, T0 = 2004.4, NOW = 2026.87;
+  const EV = [
+    [2004.55, "born, Phuket", 0], [2010.5, "first laptop, age 6", 0], [2021.6, "diploma, LPU", 1],
+    [2023.75, "Pink Parcel", 0], [2025.0, "FemoraAI", 1], [2026.5, "Luna", 0], [2027.45, "B.Tech", 1, true],
+  ];
+  const el = (n, a, t) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); if (t != null) e.textContent = t; svg.append(e); return e; };
+  function draw() {
+    svg.innerHTML = "";
+    const W = svg.clientWidth, H = svg.clientHeight, L = 4, R = 4, Y = Math.round(H * 0.52);
+    const X = t => L + (1 - Math.log(T - t) / Math.log(T - T0)) * (W - L - R);
+    el("line", { x1: L, x2: W - R, y1: Y, y2: Y, stroke: "#1D1E20", "stroke-width": 1 });
+    for (let yr = 2005; yr <= 2028; yr++) {
+      const major = [2005, 2010, 2015, 2020, 2025, 2027].includes(yr);
+      el("line", { x1: X(yr), x2: X(yr), y1: Y, y2: Y + (major ? 7 : 4), stroke: major ? "#5B5E63" : "#C9C5BC", "stroke-width": 1 });
+      if (major && W > 560) el("text", { x: X(yr), y: Y + 19, "text-anchor": "middle", "font-size": 10, fill: "#8A8C8F", "font-family": "Geist Mono" }, yr);
+    }
+    const xn = X(NOW);
+    el("line", { x1: xn, x2: xn, y1: 4, y2: Y + 9, stroke: "#6F64A8", "stroke-width": 1, "stroke-dasharray": "2 3" });
+    el("text", { x: xn + 5, y: 11, "font-size": 10, fill: "#6F64A8", "font-family": "Geist Mono" }, "now");
+    EV.forEach(([t, label, row, future]) => {
+      const x = X(t);
+      el("circle", { cx: x, cy: Y, r: 3.6, fill: future ? "#F6F4EF" : "#1D1E20", stroke: "#1D1E20", "stroke-width": 1.2 });
+      if (W > 560 || row === 0) el("text", { x, y: row ? Y - 9 : Y - 9, dy: row ? -11 : 0, "text-anchor": t < 2006 ? "start" : "middle",
+        "font-size": 10.5, fill: "#1D1E20", "font-family": "Geist" }, label);
+    });
+    el("text", { x: W - R, y: H - 2, "text-anchor": "end", "font-size": 9.5, fill: "#8A8C8F", "font-family": "Geist Mono" }, "log time · x ∝ −log(2029 − t)");
+  }
+  draw();
+  let tm; addEventListener("resize", () => { clearTimeout(tm); tm = setTimeout(draw, 120); });
+})();
