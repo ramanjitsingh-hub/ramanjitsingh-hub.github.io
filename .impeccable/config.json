@@ -8,6 +8,15 @@
         "value": "geist",
         "createdAt": "2026-11-14T09:14:57.145Z",
         "reason": "user confirmed: art direction brief names Geist as preferred interface face; user approved comp D"
+      },
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "site/index.html"
+        ],
+        "createdAt": "2026-11-15T09:59:45.438Z",
+        "reason": "Claude decided: the flagged rule is the .ruler section break, a one-line measuring-ruler motif (ticks only, 9px tall) chosen for the mathematical art direction the user requested, not a tiled background grid"
       }
     ]
   }

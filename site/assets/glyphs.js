@@ -61,7 +61,7 @@
     },
     // the 5-point Laplacian stencil on a small grid
     stencil(host) {
-      const W = 120, H = 44, s = svg(host, W, H), h = 9, ox = 60 - 2 * h, oy = 4;
+      const W = 120, H = 44, s = svg(host, W, H), h = 9, ox = 8, oy = 4;
       for (let i = 0; i <= 4; i++) { mk(s, "line", { x1: ox, x2: ox + 4 * h, y1: oy + i * h, y2: oy + i * h, stroke: RULE }); mk(s, "line", { x1: ox + i * h, x2: ox + i * h, y1: oy, y2: oy + 4 * h, stroke: RULE }); }
       [[2, 2, LAV, 3.6], [1, 2, INK, 2.6], [3, 2, INK, 2.6], [2, 1, INK, 2.6], [2, 3, INK, 2.6]].forEach(([i, j, c, r]) => mk(s, "circle", { cx: ox + i * h, cy: oy + j * h, r, fill: c }));
     },

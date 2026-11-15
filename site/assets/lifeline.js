@@ -22,11 +22,22 @@
     const xn = X(NOW);
     el("line", { x1: xn, x2: xn, y1: 4, y2: Y + 9, stroke: "#6F64A8", "stroke-width": 1, "stroke-dasharray": "2 3" });
     el("text", { x: xn + 5, y: 11, "font-size": 10, fill: "#6F64A8", "font-family": "Geist Mono" }, "now");
-    EV.forEach(([t, label, row, future]) => {
+    // labels: preferred row first; a label that would collide with one already placed in that row
+    // moves to the other row, and is dropped only if both rows are taken (narrow screens)
+    const placed = [[], []];
+    EV.forEach(([t, label, pref, future]) => {
       const x = X(t);
       el("circle", { cx: x, cy: Y, r: 3.6, fill: future ? "#F6F4EF" : "#1D1E20", stroke: "#1D1E20", "stroke-width": 1.2 });
-      if (W > 560 || row === 0) el("text", { x, y: row ? Y - 9 : Y - 9, dy: row ? -11 : 0, "text-anchor": t < 2006 ? "start" : "middle",
-        "font-size": 10.5, fill: "#1D1E20", "font-family": "Geist" }, label);
+      const txt = el("text", { x, y: Y - 9, "text-anchor": t < 2006 ? "start" : "middle", "font-size": 10.5, fill: "#1D1E20", "font-family": "Geist" }, label);
+      let b = txt.getBBox();
+      const shift = Math.max(0, L - b.x) - Math.max(0, b.x + b.width - (W - R));   // keep inside the frame
+      if (shift) { txt.setAttribute("x", x + shift); b = txt.getBBox(); }
+      const a = b.x - 4, z = b.x + b.width + 4;
+      const fits = r => placed[r].every(([p, q]) => z < p || a > q) && (r === 0 || z < xn - 2 || a > xn + 30);
+      const row = [pref, 1 - pref].find(fits);
+      if (row == null) { txt.remove(); return; }
+      placed[row].push([a, z]);
+      if (row) txt.setAttribute("dy", -11);
     });
     el("text", { x: W - R, y: H - 2, "text-anchor": "end", "font-size": 9.5, fill: "#8A8C8F", "font-family": "Geist Mono" }, "log time · x ∝ −log(2029 − t)");
   }
