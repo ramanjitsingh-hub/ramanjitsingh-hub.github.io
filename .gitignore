@@ -7,3 +7,4 @@ investigations/02-gpu-navier-stokes/bin/
 *.exp
 *.lib
 *.pdb
+investigations/03-gpu-anatomy/bin/

@@ -1,0 +1,115 @@
+{
+ "stride": [
+  {
+   "s": 1,
+   "sectors_per_request": 4.0,
+   "dram_bytes_per_useful_byte": 1.000396728515625,
+   "l2_sectors_per_useful_sector": 1.0,
+   "predicted_sectors_per_request": 4
+  },
+  {
+   "s": 2,
+   "sectors_per_request": 8.0,
+   "dram_bytes_per_useful_byte": 2.0003814697265625,
+   "l2_sectors_per_useful_sector": 2.0,
+   "predicted_sectors_per_request": 8
+  },
+  {
+   "s": 4,
+   "sectors_per_request": 16.0,
+   "dram_bytes_per_useful_byte": 4.0003814697265625,
+   "l2_sectors_per_useful_sector": 4.0,
+   "predicted_sectors_per_request": 16
+  },
+  {
+   "s": 8,
+   "sectors_per_request": 32.0,
+   "dram_bytes_per_useful_byte": 8.002349853515625,
+   "l2_sectors_per_useful_sector": 8.0,
+   "predicted_sectors_per_request": 32
+  },
+  {
+   "s": 16,
+   "sectors_per_request": 32.0,
+   "dram_bytes_per_useful_byte": 8.00042724609375,
+   "l2_sectors_per_useful_sector": 8.0,
+   "predicted_sectors_per_request": 32
+  },
+  {
+   "s": 32,
+   "sectors_per_request": 32.0,
+   "dram_bytes_per_useful_byte": 8.002365112304688,
+   "l2_sectors_per_useful_sector": 8.0,
+   "predicted_sectors_per_request": 32
+  },
+  {
+   "s": 64,
+   "sectors_per_request": 32.0,
+   "dram_bytes_per_useful_byte": 8.000381469726562,
+   "l2_sectors_per_useful_sector": 8.0,
+   "predicted_sectors_per_request": 32
+  }
+ ],
+ "bank": [
+  {
+   "s": 0,
+   "wavefronts_per_inst": 1.0,
+   "conflicts_per_inst": 0.0,
+   "predicted_degree": 1
+  },
+  {
+   "s": 1,
+   "wavefronts_per_inst": 1.0,
+   "conflicts_per_inst": 0.0,
+   "predicted_degree": 1
+  },
+  {
+   "s": 2,
+   "wavefronts_per_inst": 2.0,
+   "conflicts_per_inst": 1.0,
+   "predicted_degree": 2
+  },
+  {
+   "s": 3,
+   "wavefronts_per_inst": 1.0,
+   "conflicts_per_inst": 0.0,
+   "predicted_degree": 1
+  },
+  {
+   "s": 4,
+   "wavefronts_per_inst": 4.0,
+   "conflicts_per_inst": 3.0,
+   "predicted_degree": 4
+  },
+  {
+   "s": 8,
+   "wavefronts_per_inst": 8.0,
+   "conflicts_per_inst": 7.0,
+   "predicted_degree": 8
+  },
+  {
+   "s": 16,
+   "wavefronts_per_inst": 16.0,
+   "conflicts_per_inst": 15.0,
+   "predicted_degree": 16
+  },
+  {
+   "s": 31,
+   "wavefronts_per_inst": 1.0,
+   "conflicts_per_inst": 0.0,
+   "predicted_degree": 1
+  },
+  {
+   "s": 32,
+   "wavefronts_per_inst": 32.0,
+   "conflicts_per_inst": 31.0,
+   "predicted_degree": 32
+  },
+  {
+   "s": 33,
+   "wavefronts_per_inst": 1.0,
+   "conflicts_per_inst": 0.0,
+   "predicted_degree": 1
+  }
+ ]
+}
