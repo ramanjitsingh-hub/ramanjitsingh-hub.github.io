@@ -105,3 +105,47 @@ print("roofline", [(x["prec"], x["F"], x["ratio"]) for x in out["roofline"]["row
 print(f"diverge  c1 {c1} cycles, max rel err {out['divergence']['max_rel_err']:.4f}")
 print(f"banks    max rel err {out['banks']['max_rel_err']:.3f}")
 print("          worst", sorted(out["banks"]["rows"], key=lambda x: -abs(x["ratio"] - 1))[:4])
+
+# ---------------------------------------------------------------- milestone 2
+M2P = HERE / "results" / "milestone2.json"
+if M2P.exists():
+    M2 = json.loads(M2P.read_text())
+    m2 = {}
+    f = M2["fp64"]
+    dep1 = next(r for r in f if r["chains"] == 1 and r["warps_per_sm"] == 1)["cycles_per_warp_fma_per_sm"]
+    floor = min(r["cycles_per_warp_fma_per_sm"] for r in f)
+    sat = {c: min(r["warps_per_sm"] for r in f if r["chains"] == c and r["cycles_per_warp_fma_per_sm"] < floor * 1.01) for c in (1, 8)}
+    cf = M2["counters"]["fp64"]
+    pipe_per_inst = [r["sm__pipe_fp64_cycles_active.avg"] / r["sm__inst_executed_pipe_fp64.avg"] for r in cf]
+    m2["fp64"] = {"rows": [{k: r[k] for k in ("warps_per_sm", "chains", "cycles_per_warp_fma_per_sm")} for r in f],
+                  "dependent_latency_cycles": dep1, "floor_cycles": floor, "saturating_warps": sat, "littles_warps": round(dep1 / floor, 2),
+                  "single_warp_8_chains": next(r for r in f if r["chains"] == 8 and r["warps_per_sm"] == 1)["cycles_per_warp_fma_per_sm"],
+                  "pipe_active_per_inst": [round(x, 2) for x in pipe_per_inst],
+                  "stalls": [{"warps": r["warps"], "chains": r["chains"],
+                              **{s: round(r[f"smsp__warp_issue_stalled_{s}_per_warp_active.pct"], 1) for s in ("short_scoreboard", "math_pipe_throttle", "wait", "selected")}} for r in cf]}
+    b = M2["bw2"]
+    def g(arr, pipe, k): return next(r["GBps"] for r in b if r["warps_per_sm"] == 1 and r["array"] == arr and r["pipe"] == pipe and r["ilp"] == k)
+    l2_ns = out["latency"]["L2"]["ns"]
+    m2["bw"] = {"dram": {p: {k: g(256 << 20, p, k) for k in (1, 2, 4, 8, 16)} for p in (0, 1)},
+                "l2": {p: {k: g(512 << 10, p, k) for k in (1, 2, 4, 8, 16)} for p in (0, 1)},
+                "l2_latency_ns": l2_ns, "l2_littles_K1": round(SMS * 512 / l2_ns, 1),
+                "dram_littles_K1": round(SMS * 512 / lat_ns, 1)}
+    t = M2["tlb"] + M2.get("tlb2", [])
+    steps = {}
+    for gsz in sorted({r["stride"] for r in t}):
+        rs = sorted([r for r in t if r["stride"] == gsz], key=lambda r: r["blocks"])
+        base = median(r["cycles"] for r in rs[:3])
+        flat = [r["blocks"] for r in rs if r["cycles"] < base + 4]
+        up = [r["blocks"] for r in rs if r["cycles"] >= base + 4]
+        after = [x for x in up if x > max(flat)]          # a raised point below the last flat one is an outlier, not the step
+        steps[gsz] = {"base_cycles": round(base, 1), "last_flat_blocks": max(flat), "first_step_blocks": min(after) if after else None,
+                      "outliers": [x for x in up if x < max(flat)],
+                      "step_cycles": round(median(r["cycles"] for r in rs if r["blocks"] in after) - base, 1) if after else None,
+                      "points": [[r["blocks"], r["cycles"]] for r in rs]}
+    m2["tlb"] = steps
+    m2["stride"] = [{k: r[k] for k in ("s", "halfoff", "useful_GBps")} for r in M2["stride2"]]
+    out["m2"] = m2
+    (HERE / "results" / "analysis.json").write_text(json.dumps(out, indent=1))
+    print("m2 fp64", {k: m2["fp64"][k] for k in ("dependent_latency_cycles", "floor_cycles", "saturating_warps", "littles_warps", "single_warp_8_chains", "pipe_active_per_inst")})
+    print("m2 bw dram", m2["bw"]["dram"], "\n   l2", m2["bw"]["l2"], m2["bw"]["l2_littles_K1"], m2["bw"]["dram_littles_K1"])
+    for gsz, v in steps.items(): print("m2 tlb", gsz, {k: v[k] for k in ("base_cycles", "last_flat_blocks", "first_step_blocks", "step_cycles", "outliers")})

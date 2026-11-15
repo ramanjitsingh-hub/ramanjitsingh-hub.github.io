@@ -30,12 +30,12 @@
   <h1>The anatomy of a graphics card</h1>
   <p class="abstract">Seven small experiments, each isolating one mechanism of a laptop GPU, and each tested against a simple model written down before it ran. Most models hold to within a few percent. Where one does not, the gap is measured and kept, because the gaps are where the hardware is more interesting than the textbook.</p>
   <div class="side">
-    <div class="status mono"><i></i>in progress · milestone 1 complete</div>
+    <div class="status mono"><i></i>in progress · milestones 1 and 2 complete</div>
     <div class="datanote"><b>Hardware.</b> NVIDIA RTX 3050 Laptop, Ampere GA107, 20 SMs, 1 MB L2, 64-bit GDDR6, <b id="spec">·</b> GB/s by specification. Every kernel measures its own clock.</div>
     <dl class="meta">
       <dt>language</dt><dd>CUDA C++17, Python</dd>
       <dt>toolchain</dt><dd>CUDA 13.5 · Nsight Compute 2026.4</dd>
-      <dt>experiments</dt><dd>7, 220 measured configurations</dd>
+      <dt>experiments</dt><dd>11, <span id="ncfg">·</span> measured configurations</dd>
       <dt>code</dt><dd><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io/tree/main/investigations/03-gpu-anatomy">investigations/03-gpu-anatomy</a></dd>
     </dl>
   </div>
@@ -51,7 +51,7 @@
     <li><a href="#s6"><span>6</span>Divergence costs paths, not lanes</a></li>
     <li><a href="#s7"><span>7</span>Banks, and a limit that is not banks</a></li>
     <li><a href="#s8"><span>8</span>Scorecard</a></li>
-    <li><a href="#s9"><span>9</span>Open questions</a></li>
+    <li><a href="#s9"><span>9</span>Following up the gaps</a></li>
     <li><a href="#s10"><span>10</span>Reproduce</a></li>
     <li><a href="#refs"><span>·</span>References</a></li>
   </ol></aside>
@@ -73,7 +73,7 @@
       <svg id="lat" viewBox="0 0 860 300" role="img" aria-label="Load latency against working set size"></svg>
     </div>
     <p class="cap" id="latcap"><b>Figure 1.</b> ·</p></div>
-    <p>The steps are sharp. The L1 step ends between 92 KB and 131 KB and the L2 step between 741 KB and 1.48 MB, consistent with the 1 MB L2 the driver reports. Beyond 64 MB each load costs about 10 cycles more. A plausible cause is the GPU running out of cached page-table entries, but this page only claims the step, not its cause (§9).</p>
+    <p>The steps are sharp. The L1 step ends between 92 KB and 131 KB and the L2 step between 741 KB and 1.48 MB, consistent with the 1 MB L2 the driver reports. Beyond 64 MB each load costs about 10 cycles more. A dedicated experiment in §9 traces it to a 16-entry address-translation cache with 2 MB pages, which covers exactly 32 MB.</p>
   </section>
 
   <section id="s3">
@@ -86,7 +86,7 @@
       <div class="legend mono" id="llleg"></div>
     </div>
     <p class="cap" id="llcap"><b>Figure 2.</b> ·</p></div>
-    <p>Plotted against bytes in flight, configurations with very different W and K fall close to one curve, which is the content of the law. Two things depart from it. The model is consistently optimistic in the latency-bound region, by 12 to 17%, and one warp per SM never passes about 87 GB/s however many loads each thread issues (the two hollow points below the plateau). Both are listed in §9.</p>
+    <p>Plotted against bytes in flight, configurations with very different W and K fall close to one curve, which is the content of the law. Two things depart from it. The model is consistently optimistic in the latency-bound region, by 12 to 17%, and one warp per SM never passes about 87 GB/s however many loads each thread issues (the two hollow points below the plateau). §9 shows the second is a property of the loop, not the hardware, while the first remains open.</p>
   </section>
 
   <section id="s4">
@@ -99,7 +99,7 @@
     </div>
     <p class="cap"><b>Figure 3.</b> Points are measurements and the line is the sector model, with no fitted parameter. Hardware counters (Table 1) show the mechanism directly.</p></div>
     <table class="res" id="cotab"></table>
-    <p class="cap" style="margin-bottom:22px"><b>Table 1.</b> Nsight Compute counters for the stride kernel. Sectors per request and DRAM bytes per useful byte match the model exactly. The extra 11% lost at stride 64 is not explained by sectors, since the counters there are the same as at stride 8.</p>
+    <p class="cap" style="margin-bottom:22px"><b>Table 1.</b> Nsight Compute counters for the stride kernel. Sectors per request and DRAM bytes per useful byte match the model exactly. The extra 11% lost at stride 64 is not explained by sectors, since the counters there are the same as at stride 8. §9 traces it to the 512 MB span of this test.</p>
   </section>
 
   <section id="s5">
@@ -111,7 +111,7 @@
       <div class="legend mono"><span><i class="sw" style="background:var(--powder-d,#6F95BA)"></i>FP32</span><span><i class="sw" style="background:var(--lavender-deep)"></i>FP64</span><span>lines: model at the clock measured in each run</span></div>
     </div>
     <p class="cap" id="rfcap"><b>Figure 4.</b> ·</p></div>
-    <p>FP32 follows the roof to within a few percent and reaches 98% of its peak. FP64 does not. It levels off at 84% of the two-lanes-per-SM model, at both clock states. The divergence experiment in the next section measures the same 84% from a completely different kernel, so the shortfall belongs to the FP64 unit, not to this benchmark.</p>
+    <p>FP32 follows the roof to within a few percent and reaches 98% of its peak. FP64 does not. It levels off at 84% of the two-lanes-per-SM model, at both clock states. The divergence experiment in the next section measures the same 84% from a completely different kernel, so the shortfall belongs to the FP64 unit, not to this benchmark. §9 measures where the missing cycles go.</p>
   </section>
 
   <section id="s6">
@@ -147,8 +147,34 @@
   </section>
 
   <section id="s9">
-    <h2><span class="n">§9</span>Open questions</h2>
-    <p id="open">·</p>
+    <h2><span class="n">§9</span>Following up the gaps</h2>
+    <p>Each gap had several candidate explanations. For each one I ran a further experiment chosen so that the candidates predict different outcomes.</p>
+
+    <h3>FP64 runs at 19 cycles per instruction</h3>
+    <p>W warps per SM run either one dependent FMA chain per thread or eight independent chains. If the shortfall came from too little parallelism, more warps or more chains would close it. They do not.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 7 &nbsp;cycles per FP64 warp instruction per SM against warps per SM</span></div>
+      <svg id="f64" viewBox="0 0 860 280" role="img" aria-label="FP64 issue interval against warps per SM"></svg>
+      <div class="legend mono"><span><i class="sw" style="background:var(--lavender-deep)"></i>one dependent chain</span><span><i class="sw" style="background:var(--sage-d,#6E8565)"></i>eight independent chains</span></div>
+    </div>
+    <p class="cap" id="f64cap"><b>Figure 7.</b> ·</p></div>
+    <p>A dependent FMA takes <b id="f64lat">·</b> cycles, and the SM never issues FP64 instructions faster than one per <b id="f64floor">·</b> cycles. Little's law, applied this time to an arithmetic unit, says \(49/19 \approx 2.6\) warps of dependent work are needed to hide the latency, and the floor indeed appears at 3. The counters show the FP64 pipe busy for exactly 16 of those 19 cycles in every configuration. The waiting warps are stalled on the <i>short scoreboard</i>, the mechanism the SM uses for variable-latency units such as shared memory, and almost never on the math pipe itself. On this chip FP64 behaves like such a unit, and each instruction leaves the pipe idle for 3 cycles, independent of clock, occupancy and dependency structure. That is the 84% of §5, now measured in cycles. Why the hardware needs those 3 cycles cannot be seen from software.</p>
+
+    <h3>The single-warp cap was the loop</h3>
+    <p>The streaming loop waits for all K loads, sums them, and only then issues the next K. A software-pipelined version issues round \(n+1\) before summing round \(n\). With one warp per SM it reaches <b id="pipepk">·</b> GB/s at K = 8, the full peak, where the plain loop stops short. The cap in §3 was the code, not a hardware limit on outstanding requests. The 12 to 17% shortfall at K = 1 did not move under pipelining, so serial work in the loop is not its cause. It also appears for L2-resident data, and latency-bound runs vary by up to 25% between sessions while bandwidth-bound runs repeat to 1%. That remains open.</p>
+
+    <h3>The 64 MB step is a translation cache</h3>
+    <p>To isolate address translation, one thread chases through one 128-byte line in each block of \(g\) bytes, at a random offset within the block, with loads that bypass L1. The data then always sits in L2, so the baseline is the L2 latency, and only translation can add to it. Varying \(g\) separates the number of entries from the page size.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 8 &nbsp;L2-hit latency against the number of 2 MB pages touched</span></div>
+      <svg id="tlb" viewBox="0 0 860 300" role="img" aria-label="Translation step against pages touched"></svg>
+      <div class="legend mono" id="tlbleg"></div>
+    </div>
+    <p class="cap" id="tlbcap"><b>Figure 8.</b> ·</p></div>
+    <p>For every block of 2 MB or more, the step comes at exactly 17 blocks, so the cache holds 16 entries. For 64 KB blocks it comes when the span passes \(16 \times 2\ \text{MB} = 32\ \text{MB}\), so each entry covers 2 MB. Larger pages would let 17 blocks of 2 MB share 9 entries, and smaller pages would make 64 KB blocks step at 17, so the page size is exactly 2 MB. A miss costs about 10 cycles, too little for a page-table walk, so a second, larger level must answer it. The 64 KB curve rises gradually instead of in one step, and that fits too. There the chase revisits pages in random order, so with 16 entries a load finds its page cached with probability \(16/P\), which predicts +5.0, +7.5 and +8.8 cycles at 32, 64 and 128 pages against +5.6, +8.0 and +10.3 measured. This accounts for the step in Figure 1. The stride-64 loss of §4 turned out to belong to the 512 MB span of that test, since at a fixed 128 MB span stride 64 runs as fast as its neighbours.</p>
+
+    <h3>Still open</h3>
+    <p>Three things remain unexplained. The Little's-law shortfall at low concurrency, together with its run-to-run variation, which may come from the memory clock changing under light load. Strides of 96, 192 and 256 elements, which at a fixed span lose 35 to 55% of their bandwidth while 128 does not, probably through the undocumented mapping of addresses to memory channels. And the hardware reason for the 3 idle FP64 cycles.</p>
   </section>
 
   <section id="s10">
@@ -157,6 +183,7 @@
 ./build.sh                  <span class="c"># bin/anat  (CUDA 13.5, sm_86)</span>
 python run_milestone1.py    <span class="c"># all sweeps, about 5 minutes, close other GPU users first</span>
 python profile_counters.py  <span class="c"># Nsight Compute counters for the stride and bank experiments</span>
+python run_milestone2.py    <span class="c"># follow-up experiments on the gaps, about 6 minutes</span>
 python analyze.py           <span class="c"># every model against every measurement</span>
 python export_site_data.py  <span class="c"># copies the numbers this page renders</span>
 ./bin/anat div --active 1 --paths 1    <span class="c"># any single experiment, one JSON line</span></pre>
@@ -300,6 +327,8 @@ function drawScore() {
     ["Divergence", "c₁ · min(active, paths)", rng(A.divergence.rows.filter(r => r.ratio).map(r => r.ratio)), "exact", C.sageD],
     ["Shared memory, 4 bytes", "gcd(S, 32)", rng(A.banks.rows.filter(r => r.width === 4 && r.wavefronts === undefined).map(r => r.measured / Math.max(1, r.s === 0 ? 1 : gcd(r.s, 32)))), "fails below 2 cycles", C.lavD],
     ["Shared memory, all widths", "max(2, wavefronts)", rng(A.banks.rows.map(r => r.ratio)), "holds", C.sageD],
+    ["FP64 issue (milestone 2)", "max(19, 49 / W) cycles", rng(A.m2.fp64.rows.filter(r => r.chains === 1).map(r => r.cycles_per_warp_fma_per_sm / Math.max(19.003, 49.013 / r.warps_per_sm))), "holds", C.sageD],
+    ["Translation (milestone 2)", "16 entries × 2 MB", "step at 17 pages, all 5 block sizes", "holds", C.sageD],
   ];
   let h = "<tr><th>experiment</th><th>model</th><th>measured / model</th><th>verdict</th></tr>";
   rows.forEach(r => { h += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="ok"><span class="dot" style="background:${r[4]}"></span>${r[3]}</td></tr>`; });
@@ -307,7 +336,51 @@ function drawScore() {
 }
 const gcd = (a, b) => b ? gcd(b, a % b) : a;
 
+function drawF64() {
+  const svg = $("f64"); svg.innerHTML = "";
+  const f = D.analysis.m2.fp64, rows = f.rows;
+  const a = axes(svg, { W: 860, H: 280, L: 56, R: 14, T: 20, B: 30, x0: 0.8, x1: 40, y0: 10, y1: 60, xlog: true, ylog: true,
+    xt: [1, 2, 3, 4, 8, 16], yt: [16, 19, 25, 50], xl: "warps per SM", yl: "cycles" });
+  mk(svg, "line", { x1: a.sx(0.8), x2: 846, y1: a.sy(16), y2: a.sy(16), stroke: C.faint, "stroke-dasharray": "3 3" });
+  txt(svg, 844, a.sy(16) + 14, "16 · pipe busy per instruction (counters)", { "text-anchor": "end" });
+  const dl = []; for (let i = 0; i <= 100; i++) { const w = 0.8 * Math.pow(50, i / 100); dl.push([a.sx(w), a.sy(Math.max(f.floor_cycles, f.dependent_latency_cycles / w))]); }
+  mk(svg, "path", { d: poly(dl), fill: "none", stroke: C.ink, "stroke-width": 1, "stroke-dasharray": "2 2" });
+  txt(svg, a.sx(1.15), a.sy(f.dependent_latency_cycles / 1.15) - 8, "max(19, 49 / W)", { fill: C.ink });
+  [[1, C.lavD], [8, C.sageD]].forEach(([c, col]) => { const rs = rows.filter(r => r.chains === c);
+    mk(svg, "path", { d: poly(rs.map(r => [a.sx(r.warps_per_sm), a.sy(r.cycles_per_warp_fma_per_sm)])), fill: "none", stroke: col, "stroke-width": 1.5 });
+    rs.forEach(r => mk(svg, "circle", { cx: a.sx(r.warps_per_sm), cy: a.sy(r.cycles_per_warp_fma_per_sm), r: 3.2, fill: col })); });
+  $("f64lat").textContent = f.dependent_latency_cycles.toFixed(0); $("f64floor").textContent = f.floor_cycles.toFixed(1);
+  const st = f.stalls.map(x => `${x.short_scoreboard}%`).join(", ");
+  $("f64cap").innerHTML = `<b>Figure 7.</b> Measured in cycles from clock64(), so independent of the clock state. The dotted line is \\(\\max(19, 49/W)\\), the floor combined with Little's law for one dependent chain per warp. One warp with eight independent chains reaches ${f.single_warp_8_chains.toFixed(1)} cycles. In the three configurations profiled, short-scoreboard stalls are ${st} of warp cycles and math-pipe throttle stalls are 0%.`;
+  if (window.renderMathInElement) renderMathInElement($("f64cap"), { delimiters: [{ left: "\\(", right: "\\)", display: false }] });
+}
+
+function drawTlb() {
+  const svg = $("tlb"); svg.innerHTML = "";
+  const T = D.analysis.m2.tlb, MB = 1 << 20;
+  const a = axes(svg, { W: 860, H: 300, L: 56, R: 14, T: 20, B: 30, x0: 0.15, x1: 700, y0: 205, y1: 230, xlog: true,
+    xt: [0.25, 1, 4, 16, 64], yt: [210, 215, 220, 225, 230], xl: "2 MB pages touched", yl: "cycles" });
+  mk(svg, "line", { x1: a.sx(16.5), x2: a.sx(16.5), y1: a.sy(205), y2: a.sy(230), stroke: C.lavD, "stroke-dasharray": "2 3" });
+  txt(svg, a.sx(16.5) + 6, a.sy(228.5), "16 entries", { fill: C.lavD });
+  const col = { 4096: C.faint, 65536: C.powderD, 2097152: C.lavD, 4194304: C.sageD, 8388608: C.ink };
+  Object.entries(T).forEach(([g, v]) => { g = +g;
+    const pages = b => g < 2 * MB ? b * g / (2 * MB) : b;          // distinct 2 MB pages touched
+    const byx = {};                                                   // coarse and fine runs overlap: median per point
+    v.points.filter(([b]) => pages(b) >= 0.15).forEach(([b, c]) => (byx[b] = byx[b] || []).push(c));
+    const med = xs => { xs.sort((p, q) => p - q); const n = xs.length; return n % 2 ? xs[n >> 1] : (xs[n / 2 - 1] + xs[n / 2]) / 2; };
+    const pts = Object.entries(byx).map(([b, cs]) => [a.sx(pages(+b)), a.sy(med(cs))]);
+    pts.sort((x, y) => x[0] - y[0]);
+    mk(svg, "path", { d: poly(pts), fill: "none", stroke: col[g], "stroke-width": 1.2, opacity: .7 });
+    pts.forEach(q => mk(svg, "circle", { cx: q[0], cy: q[1], r: 2.8, fill: col[g] }));
+  });
+  const lab = g => g >= MB ? g / MB + " MB" : g / 1024 + " KB";
+  $("tlbleg").innerHTML = Object.keys(T).map(g => `<span><i class="sw" style="background:${col[g]}"></i>blocks of ${lab(+g)}</span>`).join("");
+  const s2 = T[2 * MB];
+  $("tlbcap").innerHTML = `<b>Figure 8.</b> Each line is one block size. Blocks of 2 MB or more touch one page each, smaller blocks share pages, so the horizontal axis counts distinct 2 MB pages. Every block size steps after 16 pages, by ${s2.step_cycles} cycles for 2 MB blocks. One run at 13 blocks of 8 MB read 224 cycles once and 212 in three re-runs, and is kept as measured.`;
+}
+
 function drawOpen() {
+  return;
   const m2 = D.m2;
   $("open").innerHTML = m2 && m2.summary_html ? m2.summary_html :
     "Three gaps remain. Sustained FP64 is 84% of the pipe model in two unrelated kernels. Little's law over-predicts by 12 to 17% where latency limits, and one warp per SM stops near 87 GB/s. And the 10-cycle latency step beyond 64 MB and the extra loss at stride 64 have no confirmed cause. Each needs a further experiment designed to tell its candidate explanations apart, which is the next milestone.";
@@ -319,7 +392,7 @@ document.getElementById("bkw").addEventListener("click", e => { const b = e.targ
 fetch("../data/inv03.json").then(r => r.json()).then(d => {
   D = d;
   $("spec").textContent = d.analysis.littles_law.spec_GBps.toFixed(1);
-  drawLat(); drawLL(); drawCo(); drawRf(); drawDv(); drawBk(); drawScore(); drawOpen();
+  drawLat(); drawLL(); drawCo(); drawRf(); drawDv(); drawBk(); drawScore(); drawF64(); drawTlb(); $("pipepk").textContent = d.analysis.m2.bw.dram[1][8].toFixed(0); $("ncfg").textContent = d.n_configs;
 });
 
 document.addEventListener("DOMContentLoaded", () => {
