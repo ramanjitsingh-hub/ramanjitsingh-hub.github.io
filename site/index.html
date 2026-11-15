@@ -33,25 +33,25 @@ nav .links a:hover{color:var(--charcoal)}
 nav .rev{grid-column:11/13;text-align:right}
 
 /* about */
-.about{min-height:100vh;display:flex;flex-direction:column;padding-top:84px}
+.about{min-height:100vh;display:flex;flex-direction:column;padding-top:74px}
 .about > .wrap.grid{flex:1;align-items:center;width:100%}
-.about .left{grid-column:1/8;padding:12px 0 32px}
+.about .left{grid-column:1/8;padding:6px 0 22px}
 .figure-att{grid-column:8/13;align-self:center;position:relative}
 #attractor{display:block;width:100%;aspect-ratio:1.3/1}
 .att-cap{margin-top:10px;font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--graphite)}
 .att-cap i{font-family:var(--sans);font-style:italic;font-size:13px;color:var(--charcoal)}
 .att-cap b{font-weight:400;color:var(--charcoal)}
-.about h1{font-weight:300;font-size:clamp(34px,3.7vw,56px);line-height:1.04;letter-spacing:-.033em}
+.about h1{font-weight:300;font-size:clamp(32px,3.3vw,52px);line-height:1.04;letter-spacing:-.033em}
 .about h1 span{color:var(--graphite)}
-.about .intro{margin-top:26px;font-size:clamp(16.5px,1.25vw,19px);font-weight:300;line-height:1.55;max-width:580px}
+.about .intro{margin-top:22px;font-size:clamp(16px,1.15vw,18px);font-weight:300;line-height:1.5;max-width:580px}
 .about .intro p+p{margin-top:14px}
-.cta{display:flex;gap:26px;flex-wrap:wrap;margin-top:28px;font-size:15px}
+.cta{display:flex;gap:26px;flex-wrap:wrap;margin-top:22px;font-size:15px}
 .cta a{border-bottom:1px solid var(--charcoal);padding-bottom:2px}
 .cta a.soft{border-color:var(--rule);color:var(--graphite)}
 .strip{border-top:1px solid var(--charcoal);padding-top:2px}
-#lifeline{display:block;width:100%;height:74px;overflow:visible}
+#lifeline{display:block;width:100%;height:68px;overflow:visible}
 .glance{display:grid;grid-template-columns:repeat(5,1fr);gap:24px}
-.glance div{padding:6px 0 22px;font-size:14.5px}
+.glance div{padding:4px 0 18px;font-size:14px}
 .glance dt{font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:6px}
 .glance dd b{font-weight:500}
 
@@ -165,6 +165,22 @@ footer .c1{grid-column:1/7}footer .c3{grid-column:7/13;text-align:right}
   .annot{left:16px;right:16px;width:auto;bottom:24px}
   footer .c1,footer .c3{grid-column:1/-1;text-align:left;margin-bottom:6px}
 }
+
+/* mathematical furniture */
+.ruler{grid-column:1/-1;height:9px;margin:0 0 56px;border-top:1px solid var(--rule);background-image:repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px 12px),repeating-linear-gradient(90deg,#BDB8AE 0 1px,transparent 1px 120px);background-size:100% 4px,100% 9px;background-repeat:no-repeat}
+section.s{padding:96px 0 20px}
+.margin-fig{margin-top:28px;max-width:190px}
+.gcap{font-family:var(--mono);font-size:10.5px;color:var(--graphite);margin-top:6px;line-height:1.5}
+.cardglyph{display:block;width:120px;height:44px;margin-bottom:10px}
+.enum{display:block;font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:4px}
+.work{position:relative;padding-left:26px}
+.work::before{content:"";position:absolute;left:4px;top:30px;bottom:30px;width:1px;background:var(--charcoal)}
+.job{position:relative}
+.job::before{content:"";position:absolute;left:-26px;top:33px;width:9px;height:9px;border-radius:50%;background:var(--ivory);border:1.2px solid var(--charcoal)}
+.job:first-child::before{background:var(--lavender-deep);border-color:var(--lavender-deep)}
+.contact .grid{position:relative}
+.contact-fig{grid-column:10/13;grid-row:2/5;align-self:center;max-width:200px;justify-self:end;width:100%}
+@media (max-width:1000px){.margin-fig{max-width:150px;margin-top:16px}.contact-fig{grid-column:1/-1;grid-row:auto;justify-self:start;margin-top:28px}}
 </style>
 </head>
 <body>
@@ -207,17 +223,19 @@ footer .c1{grid-column:1/7}footer .c3{grid-column:7/13;text-align:right}
 
 <main>
 <section class="s" style="padding-top:60px"><div class="wrap grid">
-  <div class="label"><div class="n">01</div><h2>What I do</h2></div>
+  <div class="ruler"></div>
+  <div class="label"><div class="n">§1</div><h2>What I do</h2><div class="margin-fig" data-glyph="cobweb"></div></div>
   <p class="lead">Three things, and they feed each other. <span>Building shows me which problems matter. Research tells me why my first answer was wrong. Engineering makes the better answer fast enough to use.</span></p>
   <div class="doing">
-    <a href="#work"><span class="k">build</span><h3>I start companies</h3><p>Three so far, from a campus delivery service to an AI assistant, each one taught by real users.</p><span class="go">My work ↓</span></a>
-    <a href="#research"><span class="k">research</span><h3>I test my own systems</h3><p>I take things I have built apart mathematically, and report what I measured, including what didn't work.</p><span class="go">Research ↓</span></a>
-    <a href="#live"><span class="k">engineer</span><h3>I make it run fast</h3><p>I write code for graphics cards and measure every millisecond. One of those programs is running further down this page.</p><span class="go">Live demo ↓</span></a>
+    <a href="#work"><span class="cardglyph" data-glyph="ventures"></span><span class="k">build</span><h3>I start companies</h3><p>Three so far, from a campus delivery service to an AI assistant, each one taught by real users.</p><span class="go">My work ↓</span></a>
+    <a href="#research"><span class="cardglyph" data-glyph="gauss"></span><span class="k">research</span><h3>I test my own systems</h3><p>I take things I have built apart mathematically, and report what I measured, including what didn't work.</p><span class="go">Research ↓</span></a>
+    <a href="#live"><span class="cardglyph" data-glyph="stencil"></span><span class="k">engineer</span><h3>I make it run fast</h3><p>I write code for graphics cards and measure every millisecond. One of those programs is running further down this page.</p><span class="go">Live demo ↓</span></a>
   </div>
 </div></section>
 
 <section class="s" id="work"><div class="wrap grid">
-  <div class="label"><div class="n">02</div><h2>Work</h2></div>
+  <div class="ruler"></div>
+  <div class="label"><div class="n">§2</div><h2>Work</h2></div>
   <p class="lead">I learn by building things real people use. <span>Each company below started from a problem I saw first-hand.</span></p>
   <div class="work">
     <div class="job"><span class="when">Jul 2026 – now</span><div><h3>Luna</h3><div class="role">Co-founder · agent architecture, AI infrastructure, backend</div></div>
@@ -238,19 +256,21 @@ footer .c1{grid-column:1/7}footer .c3{grid-column:7/13;text-align:right}
 </div></section>
 
 <section class="s"><div class="wrap grid">
-  <div class="label"><div class="n">03</div><h2>Recognition</h2></div>
+  <div class="ruler"></div>
+  <div class="label"><div class="n">§3</div><h2>Recognition</h2></div>
   <div class="rec" style="grid-column:4/13;margin-top:0">
-    <div><b>Startup Punjab grant</b><span>₹3,00,000 for FemoraAI, awarded by the Chief Minister of Punjab, 2026</span></div>
-    <div><b>Global Student Entrepreneur Awards</b><span>Winner, Punjab, with FemoraAI</span></div>
-    <div><b>SHE Cohort 4.0</b><span>Winner, Punjab State Council for Science and Technology</span></div>
-    <div><b>India AI Impact Summit 2026</b><span>Selected to exhibit FemoraAI, New Delhi</span></div>
-    <div><b>20+ media outlets</b><span>Coverage of FemoraAI, including The Tribune</span></div>
-    <div><b>IECON 2025</b><span>Winner, Indian Entrepreneurship Conclave</span></div>
+    <div><span class="enum">(i)</span><b>Startup Punjab grant</b><span>₹3,00,000 for FemoraAI, awarded by the Chief Minister of Punjab, 2026</span></div>
+    <div><span class="enum">(ii)</span><b>Global Student Entrepreneur Awards</b><span>Winner, Punjab, with FemoraAI</span></div>
+    <div><span class="enum">(iii)</span><b>SHE Cohort 4.0</b><span>Winner, Punjab State Council for Science and Technology</span></div>
+    <div><span class="enum">(iv)</span><b>India AI Impact Summit 2026</b><span>Selected to exhibit FemoraAI, New Delhi</span></div>
+    <div><span class="enum">(v)</span><b>20+ media outlets</b><span>Coverage of FemoraAI, including The Tribune</span></div>
+    <div><span class="enum">(vi)</span><b>IECON 2025</b><span>Winner, Indian Entrepreneurship Conclave</span></div>
   </div>
 </div></section>
 
 <section class="s" id="research"><div class="wrap grid">
-  <div class="label"><div class="n">04</div><h2>Research</h2></div>
+  <div class="ruler"></div>
+  <div class="label"><div class="n">§4</div><h2>Research</h2><div class="margin-fig" data-glyph="posterior"></div></div>
   <p class="lead">Alongside building, I run investigations. <span>I pick one question, work out the maths, write the code from scratch, and publish what I measured. Status labels are literal.</span></p>
 
   <div class="inv">
@@ -313,7 +333,7 @@ footer .c1{grid-column:1/7}footer .c3{grid-column:7/13;text-align:right}
   <canvas id="fluid" aria-label="Live incompressible fluid simulation"></canvas>
   <div class="wrap">
     <div class="say">
-      <div class="mono"><span class="tick"></span>05 · Live demo</div>
+      <div class="mono"><span class="tick"></span>§5 · Live demo</div>
       <h2>This is a real fluid simulation, running on your computer right now.</h2>
       <p>It is the solver from investigation 02, solving the equations of fluid motion many times a second. Move your mouse through it to stir the flow.</p>
     </div>
@@ -332,8 +352,10 @@ footer .c1{grid-column:1/7}footer .c3{grid-column:7/13;text-align:right}
 </section>
 
 <section class="contact" id="contact"><div class="wrap grid">
-  <div class="mono" style="grid-column:1/-1;margin-bottom:20px"><span class="tick"></span>06 · Contact</div>
+  <div class="ruler"></div>
+  <div class="mono" style="grid-column:1/9;margin-bottom:20px"><span class="tick"></span>§6 · Contact</div>
   <h2>If any of this is interesting to you, I'd like to hear from you.</h2>
+  <div class="contact-fig" data-glyph="lissajous"></div>
   <div class="ways"><a href="mailto:hackit830@gmail.com">hackit830@gmail.com</a><a href="https://www.linkedin.com/in/ramanjitsingh1">LinkedIn</a><a href="https://github.com/ramanjitsingh-hub">GitHub</a></div>
 </div></section>
 </main>
@@ -344,6 +366,7 @@ footer .c1{grid-column:1/7}footer .c3{grid-column:7/13;text-align:right}
 </div></footer>
 
 <script src="assets/attractor.js"></script>
+<script src="assets/glyphs.js"></script>
 <script src="assets/lifeline.js"></script>
 <script src="assets/filter.js"></script>
 <script src="assets/flow-cpu.js"></script>

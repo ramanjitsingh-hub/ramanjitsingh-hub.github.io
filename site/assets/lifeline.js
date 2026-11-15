@@ -3,7 +3,7 @@
 (function () {
   const svg = document.getElementById("lifeline");
   if (!svg) return;
-  const NS = "http://www.w3.org/2000/svg", T = 2029, T0 = 2004.4, NOW = 2026.87;
+  const NS = "http://www.w3.org/2000/svg", T = 2029, T0 = 2004.0, NOW = 2026.87;
   const EV = [
     [2004.55, "born, Phuket", 0], [2010.5, "first laptop, age 6", 0], [2021.6, "diploma, LPU", 1],
     [2023.75, "Pink Parcel", 0], [2025.0, "FemoraAI", 1], [2026.5, "Luna", 0], [2027.45, "B.Tech", 1, true],
@@ -14,10 +14,10 @@
     const W = svg.clientWidth, H = svg.clientHeight, L = 4, R = 4, Y = Math.round(H * 0.52);
     const X = t => L + (1 - Math.log(T - t) / Math.log(T - T0)) * (W - L - R);
     el("line", { x1: L, x2: W - R, y1: Y, y2: Y, stroke: "#1D1E20", "stroke-width": 1 });
-    for (let yr = 2005; yr <= 2028; yr++) {
-      const major = [2005, 2010, 2015, 2020, 2025, 2027].includes(yr);
+    for (let yr = 2004; yr <= 2028; yr++) {
+      const major = [2004, 2010, 2015, 2020, 2025, 2027].includes(yr);
       el("line", { x1: X(yr), x2: X(yr), y1: Y, y2: Y + (major ? 7 : 4), stroke: major ? "#5B5E63" : "#C9C5BC", "stroke-width": 1 });
-      if (major && W > 560) el("text", { x: X(yr), y: Y + 19, "text-anchor": "middle", "font-size": 10, fill: "#8A8C8F", "font-family": "Geist Mono" }, yr);
+      if (major && W > 560) el("text", { x: X(yr), y: Y + 19, "text-anchor": yr === 2004 ? "start" : "middle", "font-size": 10, fill: "#8A8C8F", "font-family": "Geist Mono" }, yr);
     }
     const xn = X(NOW);
     el("line", { x1: xn, x2: xn, y1: 4, y2: Y + 9, stroke: "#6F64A8", "stroke-width": 1, "stroke-dasharray": "2 3" });
