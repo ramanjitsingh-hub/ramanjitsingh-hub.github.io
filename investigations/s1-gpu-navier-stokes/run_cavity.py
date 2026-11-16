@@ -1,4 +1,4 @@
-"""Investigation 02, milestone 3a: lid-driven cavity against Ghia, Ghia and Shin (1982).
+"""Systems study S1, milestone 3a: lid-driven cavity against Ghia, Ghia and Shin (1982).
 
     ./build.sh && python run_cavity.py        # writes results/cavity.json
 """

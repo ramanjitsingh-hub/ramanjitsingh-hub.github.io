@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>A GPU Navier–Stokes Solver</title>
-<meta name="description" content="Investigation 02. A from-scratch incompressible Navier–Stokes solver on a 4 GB laptop GPU: verification, multigrid, mixed precision, latency removal, a shared-memory smoother and the lid-driven cavity.">
+<title>When Is a Cheap Model Enough</title>
+<meta name="description" content="Investigation 02. Routing prompts between 13 language models as a decision under uncertainty: the optimal rule, what a router learns from text, where it fails, how much of the hindsight oracle is luck, and a certified quality guarantee.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -12,210 +12,265 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <link rel="stylesheet" href="../assets/page.css">
 <style>
-.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.pair .sub{font-family:var(--mono);font-size:11px;color:var(--graphite);margin-bottom:4px}
-@media (max-width:980px){.pair{grid-template-columns:1fr}}
+.shares{margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)}
+.shares .row{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:11.5px;color:var(--graphite);gap:12px;flex-wrap:wrap}
+.shares .row b{color:var(--charcoal);font-weight:500}
+.shares input{width:100%;accent-color:var(--lavender-deep);margin:10px 0 12px}
+.bar{display:flex;height:26px;border:1px solid var(--rule);overflow:hidden}
+.bar span{height:100%}
+.barleg{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--graphite)}
+.barleg i{display:inline-block;width:9px;height:9px;margin-right:6px;vertical-align:-1px}
+.barleg .z{opacity:.35}
+table.res td.neg{color:#9A5B5B}
 </style>
 </head>
 <body>
 
 <nav id="nav"><div class="wrap grid">
   <a class="who" href="../">Ramanjit Singh</a>
-  <div class="links"><a href="../#research">Investigations</a><a href="../01/">01</a><a href="../04/">04</a><a href="../#systems">Systems</a><a href="../#about">About</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="../assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
+  <div class="links"><a href="../#research">Investigations</a><a href="../01/">01</a><a href="../02/">02</a><a href="../#systems">Systems</a><a href="../#about">About</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="../assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
   <span class="rev mono">investigation 02</span>
 </div></nav>
 
 <header class="top"><div class="wrap grid">
-  <div class="kicker mono"><span class="tick"></span>Investigation 02 · GPU Navier–Stokes</div>
-  <h1>A Navier–Stokes solver on a 4 GB laptop GPU</h1>
-  <p class="abstract">A from-scratch CUDA solver for two-dimensional incompressible flow. It is verified to machine precision against independent code, exactly second order in space, and validated on the lid-driven cavity. Then it is made 13.5× faster on small grids and about 2.5× on large ones by removing launch latency, moving the multigrid to mixed precision, and blocking the smoother in shared memory, and hardware counters show where the remaining time goes. The answer stays the same throughout, and at times identical to the last bit.</p>
+  <div class="kicker mono"><span class="tick"></span>Investigation 02 · Model routing</div>
+  <h1>When is a cheap model good enough?</h1>
+  <p class="abstract">Luna, the assistant I am building, sends each request to the cheapest model that can handle it. This investigation measures what that rule is worth. On 44,241 prompts answered by 13 language models, a router that reads only the prompt matches GPT-4o at about a tenth of its cost. Most of that gain comes from recognising the kind of task, and on a kind of task it has never seen, the same router does worse than a fixed model. A certified version keeps its promise, and the page measures what the promise costs. Milestone 2 takes away the full answer sheet. A router that sees only the answer it paid for learns best with no deliberate exploration at all, and logs from one router can rank another before it ships, though less sharply than one would hope.</p>
   <div class="side">
-    <div class="status mono"><i></i>in progress · milestones 1 to 4 complete</div>
-    <div class="datanote"><b>Hardware.</b> NVIDIA RTX 3050 Laptop, 4 GB, sm_86, 20 SMs, 64-bit memory bus. Measured device copy bandwidth <b id="bw">·</b>. FP64 runs at 1/64 of FP32 on this card.</div>
+    <div class="status mono"><i></i>in progress · milestones 1 and 2 complete</div>
+    <div class="datanote"><b>Data.</b> SPROUT, a public routing benchmark<sup class="r"><a href="#refs">[1]</a></sup>. Each answer is scored from 0 to 1 by a Llama 3.1 70B judge against a reference answer, and costs are token counts times list prices. No Luna user data is used.</div>
     <dl class="meta">
-      <dt>language</dt><dd>CUDA C++17, Python</dd>
-      <dt>toolchain</dt><dd>CUDA 13.5 · MSVC 2022</dd>
-      <dt>grids</dt><dd>32² to 2048²</dd>
-      <dt>reference</dt><dd>NumPy/FFT, Ghia et al. 1982</dd>
-      <dt>code</dt><dd><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io/tree/main/investigations/02-gpu-navier-stokes">investigations/02-gpu-navier-stokes</a></dd>
+      <dt>language</dt><dd>Python · NumPy, scikit-learn</dd>
+      <dt>prompts</dt><dd>44,241 · 13 models</dd>
+      <dt>split</dt><dd>30,968 / 6,636 / 6,637</dd>
+      <dt>code</dt><dd><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io/tree/main/investigations/02-model-routing">investigations/02-model-routing</a></dd>
     </dl>
   </div>
 </div></header>
 
 <main><div class="wrap grid">
   <aside class="toc"><ol id="toc">
-    <li><a href="#s1"><span>1</span>The scheme</a></li>
-    <li><a href="#s2"><span>2</span>Verification and convergence</a></li>
-    <li><a href="#s3"><span>3</span>Multigrid and the FP32 floor</a></li>
-    <li><a href="#s4"><span>4</span>Where the time went</a></li>
-    <li><a href="#s5"><span>5</span>Mixed-precision multigrid</a></li>
-    <li><a href="#s6"><span>6</span>Walls: the lid-driven cavity</a></li>
-    <li><a href="#s7"><span>7</span>A race in the fast smoother</a></li>
-    <li><a href="#s8"><span>8</span>What the hardware counters say</a></li>
-    <li><a href="#s9"><span>9</span>Running in your browser</a></li>
-    <li><a href="#s10"><span>10</span>Limitations and next steps</a></li>
-    <li><a href="#s11"><span>11</span>Reproduce</a></li>
+    <li><a href="#s1"><span>1</span>The question</a></li>
+    <li><a href="#s2"><span>2</span>Routing as a decision</a></li>
+    <li><a href="#s3"><span>3</span>Thirteen models, one price list</a></li>
+    <li><a href="#s4"><span>4</span>Who beats whom</a></li>
+    <li><a href="#s5"><span>5</span>Learning to route</a></li>
+    <li><a href="#s6"><span>6</span>Where the gain comes from</a></li>
+    <li><a href="#s7"><span>7</span>A kind of task never seen</a></li>
+    <li><a href="#s8"><span>8</span>How much of the oracle is luck</a></li>
+    <li><a href="#s9"><span>9</span>A guarantee, and its price</a></li>
+    <li><a href="#s10"><span>10</span>One answer per prompt</a></li>
+    <li><a href="#s11"><span>11</span>Judging a router before it ships</a></li>
+    <li><a href="#s12"><span>12</span>What carries back to Luna</a></li>
+    <li><a href="#s13"><span>13</span>Reproduce</a></li>
     <li><a href="#refs"><span>·</span>References</a></li>
   </ol></aside>
 
   <article>
 
   <section id="s1">
-    <h2><span class="n">§1</span>The scheme</h2>
-    <p class="lead">The equations are the incompressible Navier–Stokes equations in two dimensions,</p>
-    <div class="eq">$$\partial_t \mathbf u + \nabla\!\cdot(\mathbf u \otimes \mathbf u) = -\nabla p + \nu \nabla^2 \mathbf u, \qquad \nabla\!\cdot\mathbf u = 0 .$$</div>
-    <p>Velocities live on a staggered (MAC) grid<sup class="r"><a href="#refs">[1]</a></sup>, with \(u_{i,j}\) on vertical faces, \(v_{i,j}\) on horizontal faces and the pressure at cell centres. On this grid the discrete divergence of a discrete gradient is exactly the 5-point Laplacian, so the projection has no spurious pressure modes. Advection uses the conservative form with central interpolation, second order in space.</p>
-    <p>Time integration is the three-stage strong-stability-preserving Runge–Kutta scheme of Shu and Osher<sup class="r"><a href="#refs">[3]</a></sup>, with a projection after every stage<sup class="r"><a href="#refs">[2]</a></sup>,</p>
-    <div class="eq">$$\mathbf u^{(1)} = \mathcal P\big[\mathbf u^n + \Delta t\, L(\mathbf u^n)\big],\quad \mathbf u^{(2)} = \mathcal P\big[\tfrac34\mathbf u^n + \tfrac14(\mathbf u^{(1)} + \Delta t\, L(\mathbf u^{(1)}))\big],\quad \mathbf u^{n+1} = \mathcal P\big[\tfrac13\mathbf u^n + \tfrac23(\mathbf u^{(2)} + \Delta t\, L(\mathbf u^{(2)}))\big],$$</div>
-    <p>where \(\mathcal P[\mathbf u^*] = \mathbf u^* - \nabla\phi\) with \(\nabla^2\phi = \nabla\!\cdot\mathbf u^*\). The Poisson equation is solved by geometric multigrid V(2,2) cycles: red-black Gauss–Seidel smoothing, full-weighting restriction, bilinear prolongation, down to a 4 × 4 grid<sup class="r"><a href="#refs">[4]</a></sup>. The same templated source compiles to FP64 and FP32.</p>
+    <h2><span class="n">§1</span>The question</h2>
+    <p class="lead">Language models differ in price by a factor of more than a hundred. In this data the cheapest costs 6 cents per thousand prompts and the most expensive $7.66. They differ far less in quality.</p>
+    <p>Luna answers each request with the cheapest model that can do the job well. Writing that rule down raises three questions. What is the best possible rule, if we knew how each model would do on each prompt? How much of it can be learned from the text of the prompt alone? And can a level of quality be promised before the next thousand requests arrive?</p>
+    <p>This page answers each one on the same data. Luna's own traffic is private, so the experiments use a public benchmark in which every prompt was sent to all 13 models. That design is what makes the questions answerable, since for every prompt we know what each model would have done. Section 10 says what carries back.</p>
   </section>
 
   <section id="s2">
-    <h2><span class="n">§2</span>Verification and convergence</h2>
-    <p>Before measuring anything, the GPU code was checked against an independent NumPy implementation of the same discretisation that solves the pressure equation exactly with an FFT, using the eigenvalues of the discrete Laplacian. The two share no code. After the full Taylor–Green run at N = 64, the FP64 GPU velocity field agrees with the NumPy field to <b id="ver64">·</b> in the max norm, which is machine precision. That checks the advection stencils, the Runge–Kutta stages and the multigrid solve together.</p>
-    <p>The Taylor–Green vortex<sup class="r"><a href="#refs">[6]</a></sup> has an exact solution on the periodic box,</p>
-    <div class="eq">$$u = \sin x \cos y\, e^{-2\nu t},\qquad v = -\cos x \sin y\, e^{-2\nu t},$$</div>
-    <p>so the error can be measured directly. With \(\Delta t \propto h\) the Runge–Kutta error is \(O(h^3)\) and stays hidden behind the \(O(h^2)\) spatial error.</p>
-    <div class="fig wide"><div class="card">
-      <div class="fig-head"><span class="mono">fig. 1 &nbsp;max error against grid size, Taylor–Green, ν = 0.01, T = 1</span></div>
-      <svg id="conv" viewBox="0 0 860 300" role="img" aria-label="Grid convergence in FP64 and FP32"></svg>
-      <div class="legend mono"><span><i class="sw" style="background:var(--lavender-deep)"></i>FP64</span><span><i class="sw dash"></i>FP32</span><span><i class="sw" style="background:var(--sage)"></i>slope −2</span></div>
+    <h2><span class="n">§2</span>Routing as a decision</h2>
+    <p>A prompt \(X\) arrives. Model \(k\) would answer it with score \(Y_k \in [0,1]\) at cost \(c_k\). Write \(\mu_k(x) = \mathbb E[Y_k \mid X = x]\) and \(\kappa_k(x) = \mathbb E[c_k \mid X = x]\). A router \(\pi\) maps a prompt to a probability distribution over models, so random choices are allowed. Its value and cost are</p>
+    <div class="eq">$$V(\pi) = \mathbb E \sum_k \pi_k(X)\, Y_k, \qquad Q(\pi) = \mathbb E \sum_k \pi_k(X)\, c_k ,$$</div>
+    <p>and the aim is the highest value for a given budget \(B\).</p>
+    <div class="prop">
+      <div class="h">Proposition 1 · the rule and the frontier</div>
+      <p>For a price of quality \(\lambda \ge 0\) let \(\pi_\lambda(x) = \arg\max_k\, \mu_k(x) - \lambda\, \kappa_k(x)\). Then \(\pi_\lambda\) maximises \(V - \lambda Q\) over all routers, and solves the budgeted problem whenever \(Q(\pi_\lambda) = B\). The best value at each budget, \(F(B)\), is concave and nondecreasing, and its graph is the upper concave hull of the points \((Q(\pi_\lambda), V(\pi_\lambda))\).</p>
+      <p class="proof"><em>proof</em>By the tower rule \(V - \lambda Q = \mathbb E \sum_k \pi_k(X)\,(\mu_k(X) - \lambda \kappa_k(X))\), which is maximised prompt by prompt by putting all weight on the argmax. If \(Q(\pi) \le B = Q(\pi_\lambda)\), then \(V(\pi) \le V(\pi_\lambda) - \lambda\,(Q(\pi_\lambda) - Q(\pi)) \le V(\pi_\lambda)\). Routers can be mixed and \(V, Q\) are linear in \(\pi\), so the set of reachable \((Q, V)\) is convex. Its upper boundary is therefore concave, and each supporting line has slope \(\lambda\) and touches it at \(\pi_\lambda\). ∎</p>
     </div>
-    <p class="cap"><b>Figure 1.</b> FP64 errors fall exactly as \(h^2\). The observed order is <span id="ord64">·</span> between successive grids. Divergence stays below 7 × 10⁻¹². FP32 follows until N = 128 and then gets <i>worse</i> as the grid is refined. §3 explains why.</p></div>
+    <p>One consequence decides how routers should be judged. A router that learns nothing about the prompt has constant estimates, so it can only choose a single model. By mixing two models at random it can still reach any point on the hull of the single models. A claim that a router "matches model A at a fraction of the cost" shows skill only if it beats that hull, and every comparison below is made against it.</p>
+    <div class="prop">
+      <div class="h">Proposition 2 · the cost of wrong estimates</div>
+      <p>If \(\hat\pi\) uses estimates \(\hat\mu, \hat\kappa\) in place of \(\mu, \kappa\), then</p>
+      <div class="eq">$$(V - \lambda Q)(\pi_\lambda) - (V - \lambda Q)(\hat\pi) \;\le\; 2\, \mathbb E \max_k \Big( |\hat\mu_k(X) - \mu_k(X)| + \lambda\, |\hat\kappa_k(X) - \kappa_k(X)| \Big).$$</div>
+      <p class="proof"><em>proof</em>Write \(u = \mu - \lambda\kappa\), with \(\hat u\) defined the same way, and let \(k^\ast, \hat k\) be the two choices at a prompt. Then \(u(k^\ast) - u(\hat k) = [u(k^\ast) - \hat u(k^\ast)] + [\hat u(k^\ast) - \hat u(\hat k)] + [\hat u(\hat k) - u(\hat k)]\). The middle term is at most zero by the choice of \(\hat k\), and each outer term is at most \(\max_k |u_k - \hat u_k|\). ∎</p>
+    </div>
+    <p>A router therefore needs good score estimates only where they change the decision. The bound cannot be checked on data, because \(\mu\) is never observed. Each prompt has one answer per model, a single draw of \(Y_k\).</p>
+    <div class="prop">
+      <div class="h">Proposition 3 · the oracle overstates what is reachable</div>
+      <p>For every router, \(V(\pi) \le \mathbb E \max_k \mu_k(X) \le \mathbb E \max_k Y_k\).</p>
+      <p class="proof"><em>proof</em>\(V(\pi) = \mathbb E \sum_k \pi_k \mu_k \le \mathbb E \max_k \mu_k\). The second inequality is Jensen's, since the maximum is convex, so \(\max_k \mathbb E[Y_k \mid x] \le \mathbb E[\max_k Y_k \mid x]\). ∎</p>
+    </div>
+    <p>The right-hand side is the hindsight oracle that routing papers often report as a ceiling. It is credited whenever any of the 13 answers happens to be right, and the gap between the two sides is luck. Section 8 measures it.</p>
   </section>
 
   <section id="s3">
-    <h2><span class="n">§3</span>Multigrid and the FP32 floor</h2>
-    <p>In FP64 each V(2,2) cycle reduces the residual by a factor of 0.053 to 0.059, the same at every grid size from 64 to 2048. That is the grid-independent convergence multigrid theory promises, and the solver reaches a relative residual of 10⁻¹⁴.</p>
-    <p>FP32 cannot follow. The residual \(r = f - L_h p\) subtracts terms of size \(|p|/h^2\), so its rounding error is about \(\varepsilon_{32}\,|p|/h^2\). It grows as the grid is refined, and the relative residual stalls at a floor that rises from 1.3 × 10⁻⁶ at N = 64 to 5.9 × 10⁻⁵ at N = 2048. With a 10⁻⁵ tolerance the FP32 solver never converges on large grids and runs to its 40-cycle cap, which makes it <b>slower</b> than FP64 (157 against 33 ms per step at N = 128), not faster.</p>
+    <h2><span class="n">§3</span>Thirteen models, one price list</h2>
+    <p>SPROUT holds prompts from six benchmarks, from competition mathematics to questions over retrieved documents, each answered by all 13 models. Each answer is scored against a reference answer by a judge model, Llama 3.1 70B. Half the scores are exactly 1, a quarter exactly 0, and the rest partial credit. Costs use each answer's token counts and the per-token list prices published with the data<sup class="r"><a href="#refs">[1]</a></sup>.</p>
     <div class="fig wide"><div class="card">
-      <div class="fig-head"><span class="mono">fig. 2 &nbsp;relative residual by V-cycle, random right-hand side, N = 1024</span></div>
-      <svg id="res" viewBox="0 0 860 280" role="img" aria-label="Residual histories in FP64, FP32 and mixed precision"></svg>
-      <div class="legend mono"><span><i class="sw" style="background:var(--lavender-deep)"></i>FP64</span><span><i class="sw dash"></i>FP32</span><span><i class="sw" style="background:var(--sage-deep)"></i>mixed, FP32 cycles with FP64 residuals</span></div>
+      <div class="fig-head"><span class="mono">fig. 1 &nbsp;mean score against cost, each model on the 6,637 test prompts</span></div>
+      <svg id="mods" viewBox="0 0 860 380" role="img" aria-label="Score against cost for 13 language models"></svg>
     </div>
-    <p class="cap"><b>Figure 2.</b> FP64 and mixed precision overlap cycle for cycle down to about 4.6 × 10⁻¹⁴. FP32 stalls at 2.5 × 10⁻⁵ after four cycles.</p></div>
+    <p class="cap" id="modscap"><b>Figure 1.</b> ·</p></div>
+    <p id="modstext">·</p>
+    <p>One caution applies to every number here. The judge is itself a Llama model, and may favour answers in its own style. I have not tested that, and the Llama models' scores should be read with it in mind.</p>
   </section>
 
   <section id="s4">
-    <h2><span class="n">§4</span>Where the time went</h2>
-    <p>The first timing run gave a clear picture. In FP64 the pressure projection took 96 to 99% of every step, and a V-cycle cost 1.3 to 2.2 ms whether the grid had 64² or 512² cells. A cost that does not grow with the problem is not arithmetic. Each cycle launched hundreds of tiny kernels, 120 for the 4 × 4 coarse solve alone, and every convergence check copied a reduction back to the host and waited for it.</p>
-    <p>Meanwhile the FP32 advection kernel already ran at 98.9 GB/s, 95% of the measured copy bandwidth, so the stencil code itself was fine. The FP64 version stalled near 42 GB/s. By my hand count of about 55 to 60 operations per cell that is roughly 75 GFLOP/s, the same order as this card's FP64 peak. The hardware counters in §8 later confirmed that the kernel is compute bound, but measured 51 GFLOP/s, because my count was too high.</p>
-    <p>Each fix below is a command-line switch, so it can be measured on its own. They are added in order.</p>
+    <h2><span class="n">§4</span>Who beats whom</h2>
+    <p>Routing can only help where a cheaper model is right and a dearer one is wrong. If difficulty were one number per prompt and ability one number per model, that would never happen. The matrix of right and wrong answers would form a staircase, the pattern Guttman described for test questions in 1944<sup class="r"><a href="#refs">[7]</a></sup>, and routing would reduce to judging how hard a prompt is.</p>
     <div class="fig wide"><div class="card">
-      <div class="fig-head"><span class="mono">fig. 3 &nbsp;ms per time step as each change is added, FP64, median of 5</span>
-        <span class="seg" id="absw"><button data-n="128" class="on">N = 128</button><button data-n="512">N = 512</button><button data-n="2048">N = 2048</button></span></div>
-      <svg id="abl" viewBox="0 0 860 300" role="img" aria-label="Ablation of latency optimisations"></svg>
+      <div class="fig-head"><span class="mono">fig. 2 &nbsp;right (dark) and wrong answers, 360 random test prompts × 13 models</span></div>
+      <svg id="heat" viewBox="0 0 860 250" role="img" aria-label="Matrix of right and wrong answers"></svg>
     </div>
-    <p class="cap"><b>Figure 3.</b> Bars show the median and whiskers the min to max of 5 repeats. The right-hand numbers are host synchronisations per step. The single-launch coarse solve and CUDA Graph capture remove most of the cost on small grids. On large grids the solver is bandwidth bound and the gains come from moving fewer bytes, first by mixed precision and then, in §7, by the blocked smoother.</p></div>
+    <p class="cap"><b>Figure 2.</b> Models are ordered by accuracy, best at the top. Prompts are ordered by how many models got them right. A score of at least 0.5 counts as right. A perfect staircase would have no light cells above a dark one in any column.</p></div>
+    <p id="guttext">·</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 3 &nbsp;share of all prompts on which the row model is right and the column model is wrong</span></div>
+      <svg id="inv" viewBox="0 0 860 560" role="img" aria-label="Pairwise win matrix between models"></svg>
+    </div>
+    <p class="cap"><b>Figure 3.</b> All 44,241 prompts. Rows and columns are in the same order, best model first. Cells above the diagonal are the cases a router hopes to find, a weaker model succeeding where a stronger one fails.</p></div>
   </section>
 
   <section id="s5">
-    <h2><span class="n">§5</span>Mixed-precision multigrid</h2>
-    <p>The FP32 floor in §3 comes from computing the residual in low precision, not from smoothing in it. So the iterate and its residual are kept in FP64, and only the correction is computed in FP32, one V-cycle per outer iteration,</p>
-    <div class="eq">$$r_k = f - L_h p_k \;\;(\text{FP64}),\qquad L_h e_k \approx r_k \;\;(\text{one FP32 V-cycle}),\qquad p_{k+1} = p_k + e_k \;\;(\text{FP64}).$$</div>
-    <p>This is iterative refinement in the sense of Higham and Mary<sup class="r"><a href="#refs">[7]</a></sup>. One V-cycle only needs to reduce the error by about 0.06, which FP32 does comfortably, so the outer iteration inherits the FP64 contraction rate (Figure 2). On Taylor–Green the mixed solver reproduces every FP64 error digit at every grid size from 32 to 1024, and runs 1.38 to 1.44× faster because the smoother moves half the bytes.</p>
+    <h2><span class="n">§5</span>Learning to route</h2>
+    <p>Four routers are compared, all trained on the 30,968 training prompts and tuned on the 6,636 validation prompts. Each estimates the 13 expected scores and costs for a new prompt and applies the rule of Proposition 1. Sweeping \(\lambda\) traces its frontier.</p>
+    <p><b>Benchmark label.</b> Knows which benchmark the prompt came from and predicts each model's average score there. A deployed router has no such label, so this is a reference point. <b>Text, ridge.</b> TF-IDF features of words and character fragments, 120,004 in all, with one ridge regression to all 13 scores. <b>Text, boosted trees.</b> Gradient-boosted trees on a 256-dimensional SVD of the same features. <b>Ensemble.</b> The average of the two text routers. Costs are predicted by a ridge regression on log cost, since longer answers cost more.</p>
     <div class="fig wide"><div class="card">
-      <div class="fig-head"><span class="mono">fig. 4 &nbsp;ms per time step against grid size</span></div>
-      <svg id="thr" viewBox="0 0 860 300" role="img" aria-label="Throughput by configuration"></svg>
-      <div class="legend mono" id="thrleg"></div>
+      <div class="fig-head"><span class="mono">fig. 4 &nbsp;frontiers on the test prompts · drag to change the price of quality</span></div>
+      <svg id="front" viewBox="0 0 860 400" role="img" aria-label="Cost against score frontiers for routers"></svg>
+      <div class="legend mono" id="frontleg"></div>
+      <div class="shares">
+        <div class="row"><span>price of quality \(\lambda\) · <b id="lamv">·</b></span><span>cost per 1,000 prompts <b id="costv">·</b></span><span>score <b id="scorev">·</b></span></div>
+        <input type="range" id="lam" min="0" max="70" value="30" aria-label="price of quality">
+        <div class="bar" id="bar"></div>
+        <div class="barleg" id="barleg"></div>
+      </div>
     </div>
-    <p class="cap"><b>Figure 4.</b> Each line is the median of 5 repeats. The final configuration is mixed precision plus the blocked smoother. At N = 2048 a step drops from <span id="thr-a">·</span> ms in the first timing run to <span id="thr-b">·</span> ms. The blocked-smoother runs use the colour-compacted kernel from §8.</p></div>
+    <p class="cap" id="frontcap"><b>Figure 4.</b> ·</p></div>
+    <table class="res" id="rtab"></table>
+    <p class="cap" id="rtabcap"><b>Table 1.</b> ·</p>
+    <p id="rtext">·</p>
   </section>
 
   <section id="s6">
-    <h2><span class="n">§6</span>Walls: the lid-driven cavity</h2>
-    <p>The periodic box has no boundaries, so it cannot test the hardest part of most real flows. The cavity solver adds walls to the same scheme. Tangential no-slip is imposed through ghost values, \(u_{\text{ghost}} = 2U_{\text{wall}} - u_{\text{inside}}\), the lid moves at \(U = 1\), and the multigrid stencil drops neighbours outside the domain, which imposes the homogeneous Neumann condition the pressure correction needs. Each case runs until \(\max|\partial_t u| < 10^{-7}\).</p>
-    <p>The comparison is against the tables of Ghia, Ghia and Shin<sup class="r"><a href="#refs">[5]</a></sup>. The publisher's copy could not be fetched automatically, so the values were taken from three independent reproductions and cross-checked value by value. The Re = 100 and Re = 1000 columns agree in every source.</p>
-    <div class="fig wide"><div class="card">
-      <div class="fig-head"><span class="mono">fig. 5 &nbsp;centreline velocities at steady state</span>
-        <span class="seg" id="resw"><button data-re="100" class="on">Re = 100</button><button data-re="1000">Re = 1000</button></span></div>
-      <div class="pair">
-        <div><div class="sub">u(0.5, y)</div><svg id="cu" viewBox="0 0 420 380" role="img" aria-label="Horizontal velocity on the vertical centreline"></svg></div>
-        <div><div class="sub">v(x, 0.5)</div><svg id="cv" viewBox="0 0 420 380" role="img" aria-label="Vertical velocity on the horizontal centreline"></svg></div>
-      </div>
-      <div class="legend mono"><span><i class="sw" style="background:var(--faint)"></i>N = 64</span><span><i class="sw" style="background:var(--powder-d,#6F95BA)"></i>N = 128</span><span><i class="sw" style="background:var(--lavender-deep)"></i>N = 256</span><span>○ Ghia et al. 1982, 129 × 129</span></div>
-    </div>
-    <p class="cap" id="cavcap"><b>Figure 5.</b> ·</p></div>
-
-    <table class="res" id="cavtab"></table>
-    <p class="cap" style="margin-bottom:22px"><b>Table 1.</b> Deviation from Ghia at the 17 tabulated centreline points, excluding imposed wall values, and the streamfunction minimum of the primary vortex.</p>
-
-    <h3>How to read the comparison</h3>
-    <p>The solver converges on itself at second order. Between successive grids the centreline profiles change by 1.1 × 10⁻³ and then 2.6 × 10⁻⁴ at Re = 100 (observed order 2.11), and by 2.3 × 10⁻² and then 6.2 × 10⁻³ at Re = 1000 (order 1.88). At Re = 100 the remaining difference from Ghia, about 0.005 in u and 0.009 in v, does not shrink with refinement, so it is larger than this solver's own discretisation error. Ghia's values come from a 129 × 129 grid and carry discretisation error of their own, so this comparison cannot assign the residual difference to either side. Settling it needs a higher-accuracy reference. That is listed below as open work, not claimed.</p>
+    <h2><span class="n">§6</span>Where the gain comes from</h2>
+    <p>Split by benchmark, the picture changes.</p>
+    <table class="res" id="famtab"></table>
+    <p class="cap"><b>Table 2.</b> Test prompts by benchmark. "Gain within benchmark" is the text router's score above the hull of fixed models on that benchmark alone, averaged over log cost from the cheapest to the dearest model. The router was trained on all benchmarks together.</p>
+    <p id="famtext">·</p>
   </section>
 
   <section id="s7">
-    <h2><span class="n">§7</span>A race in the fast smoother</h2>
-    <p>On large grids every smoothing sweep reads and writes the whole fine grid, and red-black ordering doubles that. The blocked smoother loads a 32 × 32 tile with a 4-cell halo into shared memory and performs all four half-sweeps of a smoothing call there. The valid region shrinks by one cell per half-sweep, which is why the halo is four cells wide. The fine grid is then touched once per call instead of four times.</p>
-    <p>The first version wrote the tile back in place, and it was wrong. Its results differed from the unblocked smoother only at N = 2048, in the second significant digit of the residual history.</p>
-<pre><span class="c">// block A                                   block B (neighbour, scheduled later)</span>
-load tile + halo from p      <span class="c">// old values</span>
-4 half-sweeps in shared memory
-write interior back to p     <span class="c">// p now partly new</span>
-                                             load tile + halo from p   <span class="c">// halo already updated by A</span></pre>
-    <p>A block's halo belongs to its neighbours' interiors. When all blocks fit on the GPU at once, as they do on small grids, every block finishes loading before any block writes, and the bug cannot show. At N = 2048 the 4,096 blocks run in waves, so later blocks read values that are already one smoothing call ahead. The fix writes to a second buffer and swaps the pointers. Each level is smoothed exactly twice per V-cycle, so the pointers return to their original buffers after every cycle and the captured CUDA Graph stays valid. After the fix, the full Taylor–Green solution is <b>bitwise identical</b> to the unblocked solver at N = 512 in FP64 and at N = 1024 in mixed precision.</p>
-    <table class="res" id="tbtab"></table>
-    <p class="cap" style="margin-bottom:22px"><b>Table 2.</b> ms per time step, median of 5. The blocked smoother is applied only to levels with N ≥ 512.</p>
-    <p>Below N = 512 whole time steps got slower with the blocked smoother (5.39 → 7.14 ms at N = 256). The counters in §8 explain it. At N = 256 the blocked kernel launches only 64 blocks, about one wave on this GPU's 20 SMs, and on the next level down 16 blocks fill a quarter of a wave. Each block also recomputes its halo, which is a large share of a small tile. The switch therefore stays off below N = 512.</p>
+    <h2><span class="n">§7</span>A kind of task never seen</h2>
+    <p>A product's traffic changes. New users bring new kinds of request, and a router trained last month meets tasks it was never shown. To imitate this, the text router is retrained six times, each time without one benchmark, and tested on the benchmark it never saw. It is compared with two alternatives. One is a fixed ranking of models learned from the other benchmarks, which also has never seen the new task. The other is the hull of fixed models on the new benchmark itself, which needs labelled examples of it.</p>
+    <table class="res" id="lofotab"></table>
+    <p class="cap"><b>Table 3.</b> Score above the hull of fixed models on the held-out benchmark, averaged over log cost. Negative means worse than the best fixed mix for that benchmark. In-distribution figures repeat Table 2.</p>
+    <p id="lofotext">·</p>
   </section>
 
   <section id="s8">
-    <h2><span class="n">§8</span>What the hardware counters say</h2>
-    <p>Timings say how long a kernel takes, not why. Nsight Compute reads the GPU's own counters for every kernel, including the bytes moved to and from memory, floating-point instructions by type, and how busy each execution pipe was. Placing each kernel on a roofline<sup class="r"><a href="#refs">[9]</a></sup> shows which limit it is pressing against. Every kernel below is profiled on its finest level at N = 1024.</p>
-    <p>The ceilings are measured rather than copied from a datasheet. The profiler locks the SM clock at <span class="mono" id="rf-clk">·</span> GHz. On the busiest FP64 kernel the FP64 pipe was active for exactly <span class="mono" id="rf-cyc">·</span> cycles per warp instruction, so each of the 20 SMs retires two FP64 lanes per cycle. That gives</p>
-    <div class="eq">$$P_{64} = 20 \times 2 \times f_{\text{SM}} = 48.3\ \text{G instr/s},\qquad 96.6\ \text{GFLOP/s if every instruction is an FMA}.$$</div>
-    <p>Memory bandwidth from the memory clock and bus width is <span class="mono" id="rf-bw">·</span> GB/s. The profiler's own percentages imply <span class="mono" id="rf-bwn">·</span> GB/s, which agrees.</p>
+    <h2><span class="n">§8</span>How much of the oracle is luck</h2>
+    <p>The hindsight oracle picks, for each prompt, the cheapest model that got it right. By Proposition 3 no router can reach it. The question is how much of the gap is luck and how much is structure that better features could find.</p>
     <div class="fig wide"><div class="card">
-      <div class="fig-head"><span class="mono">fig. 6 &nbsp;roofline, every kernel at N = 1024</span></div>
-      <svg id="roof" viewBox="0 0 860 400" role="img" aria-label="Roofline plot of every solver kernel"></svg>
-      <div class="legend mono"><span><i class="sw" style="background:var(--lavender-deep)"></i>FP64 kernel</span><span>○ FP32 kernel</span><span>→ blocked smoother, before and after the fix below</span></div>
+      <div class="fig-head"><span class="mono">fig. 5 &nbsp;share of test prompts answered right, scores rounded to right or wrong</span></div>
+      <svg id="luck" viewBox="0 0 860 230" role="img" aria-label="Ladder from best single model to oracle"></svg>
     </div>
-    <p class="cap"><b>Figure 6.</b> Each point is one kernel. A point on the sloped line is limited by memory bandwidth, and a point under a flat line by arithmetic. The FP32 peak is computed from the lane count and lies far to the right, so every FP32 kernel is memory bound by a wide margin.</p></div>
-    <h3>Three readings</h3>
-    <p><b>Almost everything is memory bound and already near the limit.</b> Every streaming kernel, in both precisions, moves data at 91 to 95% of peak bandwidth. Speed for these kernels can only come from moving fewer bytes, which is what mixed precision and the blocked smoother do.</p>
-    <p><b>The FP64 right-hand side is compute bound.</b> At 1.6 FLOP per byte it sits right of the FP64 ridge, reaching 51 GFLOP/s with the FP64 pipe busy 84% of the time. Only 24% of its FP64 instructions are fused multiply-adds, so its practical ceiling is about 60 GFLOP/s, not 96.6. This settles the estimate in §4.</p>
-    <p><b>The blocked smoother was wasting half its arithmetic.</b> Its FP64 pipe was 82% busy, yet it delivered only 20 GFLOP/s. The cause was divergence. The red-black update skipped cells of the other colour with a branch, so on each FP64 instruction only 13.8 of a warp's 32 lanes did work while the pipe stayed busy issuing them. The fix assigns each thread a cell of the current colour directly. The arithmetic and the update order are unchanged, so the solution stays <b>bitwise identical</b>, checked byte for byte at N = 512 in FP64 and N = 1024 in mixed precision.</p>
-    <table class="res" id="tbctab"></table>
-    <p class="cap" style="margin-bottom:22px"><b>Table 3.</b> ms per V-cycle with the branch and with colour-compacted thread mapping, median of 5 interleaved repeats. The kernel alone runs 2.1× faster in FP64. An isolated mixed-precision V-cycle gains about 1%, because its smoother runs in FP32 and was already close to the memory limit. A full time step at N = 2048, three interleaved repeats, runs <span id="st-f64">·</span> faster in FP64 and <span id="st-mx">·</span> faster in mixed precision. Why the full mixed step gains more than its V-cycle is not yet established.</p>
-    <table class="res" id="rooftab"></table>
-    <p class="cap" style="margin-bottom:22px"><b>Table 4.</b> Hardware counters per kernel on the finest level at N = 1024, with the clock locked by the profiler. FP64 lanes counts the active lanes per FP64 warp instruction, so 32 means no divergence. The coarse solve runs as a single block and is left out.</p>
+    <p class="cap" id="luckcap"><b>Figure 5.</b> ·</p></div>
+    <p id="lucktext">·</p>
   </section>
 
   <section id="s9">
-    <h2><span class="n">§9</span>Running in your browser</h2>
-    <p>The flow behind the <a href="../">homepage</a> headline is this solver, ported to WebGPU compute shaders: the same MAC grid, conservative advection and multigrid V(2,2), with a single-workgroup coarse solve, on a 256 × 128 periodic grid in 190 dispatches per frame. It differs from the CUDA code in ways the homepage states: FP32, Heun's method instead of SSP-RK3, a fixed two V-cycles per projection warm-started from the previous pressure, linear drag, and a passive dye advected semi-Lagrangian for display. The divergence of the displayed field is read back asynchronously and printed live. On the development laptop it holds 60 fps, the display limit, with \(\max|\nabla\!\cdot\mathbf u| \approx 3\times10^{-4}\). Browsers without WebGPU fall back to a simpler CPU solver<sup class="r"><a href="#refs">[8]</a></sup>.</p>
+    <h2><span class="n">§9</span>A guarantee, and its price</h2>
+    <p>Section 5 ended with a router that matched GPT-4o on validation and then fell short on test. That is the normal result of picking a threshold on one sample. The point chosen is the cheapest that looked good enough, and among many candidates the one that looked best was often lucky.</p>
+    <p>The remedy treats each \(\lambda\) as a hypothesis. Order them from expensive to cheap and test \(H_j\colon V(\pi_{\lambda_j}) &lt; \text{target}\) on \(n\) calibration prompts. Move to the next only while the current one is rejected at level \(\delta\), and stop at the first failure. This fixed-sequence procedure, used in this way by Angelopoulos and coauthors<sup class="r"><a href="#refs">[5]</a></sup>, needs no multiplicity correction, and the chosen router falls short of the target with probability at most \(\delta\). If nothing is rejected the router abstains and every prompt goes to GPT-4o.</p>
+    <p>Each test needs a p-value for a mean of scores bounded in \([0,1]\). Hoeffding's inequality gives one. A sharper one comes from betting<sup class="r"><a href="#refs">[6]</a></sup>. Start with capital 1 and bet a predictable fraction on each score exceeding the target, so</p>
+    <div class="eq">$$K_t = \prod_{i \le t} \big(1 + \eta_i\,(x_i - \text{target})\big), \qquad 0 \le \eta_i \le \tfrac{1}{2\,\text{target}} .$$</div>
+    <p>If the true mean is at most the target, \(K_t\) is a nonnegative supermartingale, so by Ville's inequality it reaches \(1/\delta\) with probability at most \(\delta\), and \(1/\sup_t K_t\) is a valid p-value. Here the target is GPT-4o's own test score and \(\delta = 0.1\).</p>
+    <p>To check the guarantee rather than trust it, the 6,637 test prompts serve as the whole population. Calibration samples are drawn from them, so the true score of every \(\lambda\) is known exactly and each violation can be counted. Each setting is repeated 1,000 times.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 6 &nbsp;mean cost of the certified router, as a fraction of GPT-4o, against calibration sample size</span></div>
+      <svg id="cert" viewBox="0 0 860 330" role="img" aria-label="Cost of certified router against sample size"></svg>
+      <div class="legend mono"><span><i class="sw" style="background:var(--lavender-deep)"></i>betting</span><span><i class="sw" style="background:#6F95BA"></i>Hoeffding</span><span>labels: share of runs that missed the target</span></div>
+    </div>
+    <p class="cap" id="certcap"><b>Figure 6.</b> ·</p></div>
+    <table class="res" id="certtab"></table>
+    <p class="cap"><b>Table 4.</b> 1,000 repetitions per row, target GPT-4o's score, \(\delta = 0.1\). "Naive" takes the cheapest \(\lambda\) whose calibration mean clears the target, which is what Section 5 did with the validation set.</p>
+    <p id="certtext">·</p>
   </section>
 
   <section id="s10">
-    <h2><span class="n">§10</span>Limitations and next steps</h2>
-    <p>All timings come from one laptop GPU whose clocks vary with temperature. Medians of five repeats are reported, and the spread is under 4% in the ablation, but other hardware will differ. The profiler locks the clock at its base value, so rates in §8 are lower than the timings elsewhere on this page. The ratios between kernels are what the analysis relies on. The cavity comparison needs a higher-accuracy reference to decide the residual difference from Ghia. The divergence found in §8 leads into investigation 03, the anatomy of GPU computation, which studies effects like it in isolation.</p>
+    <h2><span class="n">§10</span>One answer per prompt</h2>
+    <p class="lead">Every router so far learned from all 13 answers to each training prompt. A deployed router never has that. It sees the answer it paid for and nothing else.</p>
+    <p>Learning under this partial feedback is a contextual bandit problem. Prompts arrive one at a time. The router picks a model, earns the reward \(r = Y_k - \lambda c_k\) for that model only, and updates. If it always picks what currently looks best it may never learn that another model is better, so the textbook answer is to explore on purpose. I compare five learners, all with one linear reward model per model over 64 dimensions of the text features. <b>Greedy</b> always picks the best current estimate. <b>ε-greedy</b> picks a random model 5% or 20% of the time. <b>LinUCB</b> adds an optimism bonus \(\alpha \sqrt{x^\top A_k^{-1} x}\) that is large where model \(k\) has seen little data like \(x\)<sup class="r"><a href="#refs">[10]</a></sup>. <b>Thompson sampling</b> picks by a random draw from each model's posterior<sup class="r"><a href="#refs">[11]</a></sup>. A <b>full-information</b> learner, which sees all 13 rewards, marks what partial feedback costs.</p>
+    <p>The 37,604 training and validation prompts are streamed in five random orders, at three prices of quality. At \(\lambda = 100\), spending one cent on a prompt costs as much as a perfect answer is worth. Regret is measured against the best single model in hindsight, which is GPT-4o mini at all three prices.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 7 &nbsp;cumulative regret against the best fixed model, mean of five orders</span><span class="seg" id="lamseg"><button data-l="30">λ = 30</button><button data-l="100" class="on">λ = 100</button><button data-l="300">λ = 300</button></span></div>
+      <svg id="reg" viewBox="0 0 860 340" role="img" aria-label="Cumulative regret of bandit algorithms"></svg>
+      <div class="legend mono" id="regleg"></div>
+    </div>
+    <p class="cap" id="regcap"><b>Figure 7.</b> ·</p></div>
+    <table class="res" id="bandtab"></table>
+    <p class="cap"><b>Table 5.</b> At the price selected above. "Mean reward" is over the whole stream, learning included. The test columns freeze each learner's final model and route the 6,637 test prompts with it.</p>
+    <p id="bandtext">·</p>
   </section>
 
   <section id="s11">
-    <h2><span class="n">§11</span>Reproduce</h2>
-<pre>cd investigations/02-gpu-navier-stokes
-./build.sh                     <span class="c"># bin/ns2d, bin/cavity  (CUDA 13.5, sm_86)</span>
-python run_experiments.py      <span class="c"># milestone 1: verification, convergence, multigrid, timing</span>
-python run_milestone2.py       <span class="c"># latency ablation, mixed precision</span>
-python run_cavity.py           <span class="c"># lid-driven cavity, about 32 minutes</span>
-python run_milestone3_perf.py  <span class="c"># blocked smoother</span>
-python export_site_data.py     <span class="c"># copies the numbers this page renders</span>
-./bin/ns2d bench --N 512 --baseline 1    <span class="c"># the milestone-1 solver, for comparison</span></pre>
-    <p>Every figure on this page renders <code>site/data/inv02.json</code>, which is exported from those runs and never edited by hand.</p>
+    <h2><span class="n">§11</span>Judging a router before it ships</h2>
+    <p>A product team with a working router and a better idea faces a second problem. Shipping the new router to find out is risky. The logs of the current one hold an answer, but they record only the models the current router chose. Off-policy evaluation estimates the new router's value from those logs. It can rarely be checked, because the truth would require running the new router. Here the truth is known for every candidate.</p>
+    <p>The logging router is a simple linear router on the 64 features, made to explore by choosing a random model 20% of the time, so every model has a known probability \(p(a \mid x) &gt; 0\) of being chosen. It runs once over the test prompts. The new router's value is then estimated in four ways, and the whole logging process is replayed 300 times.</p>
+    <div class="prop">
+      <div class="h">Proposition 4 · reweighting, and a second chance</div>
+      <p>Let a new router choose \(\pi(x)\), and let the log hold \((x_i, a_i, r_i)\) with known \(p(a_i \mid x_i)\). The inverse-propensity estimate</p>
+      <div class="eq">$$\hat V_{\text{IPS}} = \frac1n \sum_i \frac{\mathbf 1\{a_i = \pi(x_i)\}}{p(a_i \mid x_i)}\, r_i$$</div>
+      <p>is unbiased. So is the doubly robust estimate \(\hat V_{\text{DR}} = \frac1n \sum_i \big[\hat q(x_i, \pi(x_i)) + \frac{\mathbf 1\{a_i = \pi(x_i)\}}{p(a_i \mid x_i)}\,(r_i - \hat q(x_i, a_i))\big]\) for any reward model \(\hat q\) fitted on other data, and its variance is small when \(\hat q\) is accurate.</p>
+      <p class="proof"><em>proof</em>Given \(x\), \(\mathbb E\big[\mathbf 1\{a = \pi(x)\}\, r / p(a \mid x)\big] = \sum_a p(a \mid x)\, \mathbf 1\{a = \pi(x)\}\, \mu_a(x) / p(a \mid x) = \mu_{\pi(x)}(x)\), the new router's expected reward at \(x\). For DR, apply the same identity to \(r - \hat q(x, a)\), whose conditional mean when \(a = \pi(x)\) is \(\mu_{\pi(x)}(x) - \hat q(x, \pi(x))\). It cancels the error of the first term exactly. ∎</p>
+    </div>
+    <p>The four estimates are the <b>direct method</b>, which trusts a reward model \(\hat q\) learned from the logs, <b>IPS</b>, its <b>self-normalised</b> version<sup class="r"><a href="#refs">[13]</a></sup>, and <b>doubly robust</b><sup class="r"><a href="#refs">[12]</a></sup>. The reward model is cross-fitted, learned on one half of the log and applied to the other, so the proposition applies exactly.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 8 &nbsp;estimate minus true value, ±1 standard deviation over 300 replays of the log</span></div>
+      <svg id="ope" viewBox="0 0 860 400" role="img" aria-label="Bias and spread of off-policy estimators"></svg>
+      <div class="legend mono" id="opeleg"></div>
+    </div>
+    <p class="cap" id="opecap"><b>Figure 8.</b> ·</p></div>
+    <table class="res" id="opetab"></table>
+    <p class="cap"><b>Table 6.</b> "Logged" is how often the logging router's choice agreed with the new router's, which is the only data IPS can use. Coverage is the share of replays whose 95% normal interval contained the true value.</p>
+    <p id="opetext">·</p>
+  </section>
+
+  <section id="s12">
+    <h2><span class="n">§12</span>What carries back to Luna</h2>
+    <p>Three lessons carry over. A router should be judged against the hull of fixed models, because a random mix of two models is free to build and already beats every single model in between. Most of the saving comes from knowing the kind of task, so a router belongs on a product's own traffic, and has to be checked again when that traffic changes, since Section 7 shows it can fall below a fixed choice on unfamiliar work. And a promise about quality needs a held-out sample and a valid test. A threshold that looks safe on validation fails about four times in ten.</p>
+    <p id="lessons2">·</p>
+    <p>Two things remain open. TF-IDF features miss most of the shared difficulty that Section 8 found, and sentence embeddings computed on the laptop GPU may recover some of it. And the certified router of Section 9 assumes the next prompts look like the calibration prompts, which Section 7 shows is exactly the assumption a product breaks.</p>
+  </section>
+
+  <section id="s13">
+    <h2><span class="n">§13</span>Reproduce</h2>
+<pre><span class="c"># download the five SPROUT parquet files into data/raw/, then</span>
+cd investigations/02-model-routing
+python prepare.py           <span class="c"># compact arrays, costs from list prices</span>
+python fit_routers.py       <span class="c"># TF-IDF features, ridge and boosted trees, about 10 minutes</span>
+python run_milestone1.py    <span class="c"># sections 3 to 9, results/milestone1.json</span>
+python run_milestone2.py    <span class="c"># sections 10 and 11, results/milestone2.json, about 8 minutes</span>
+python export_site_data.py  <span class="c"># site/data/inv02.json</span></pre>
+    <p>The dataset card gives no licence, so this repository publishes only statistics computed from it, never the prompts or answers. The proofs are written out in <code>THEORY.md</code>.</p>
   </section>
 
   <section id="refs">
     <h2><span class="n">·</span>References</h2>
     <ol class="refs">
-      <li><span><i>F. H. Harlow, J. E. Welch.</i> Numerical calculation of time-dependent viscous incompressible flow of fluid with free surface. Physics of Fluids 8(12), 2182–2189, 1965.</span></li>
-      <li><span><i>A. J. Chorin.</i> Numerical solution of the Navier–Stokes equations. Mathematics of Computation 22(104), 745–762, 1968.</span></li>
-      <li><span><i>C.-W. Shu, S. Osher.</i> Efficient implementation of essentially non-oscillatory shock-capturing schemes. Journal of Computational Physics 77(2), 439–471, 1988.</span></li>
-      <li><span><i>W. L. Briggs, V. E. Henson, S. F. McCormick.</i> A Multigrid Tutorial, 2nd ed. SIAM, 2000.</span></li>
-      <li><span><i>U. Ghia, K. N. Ghia, C. T. Shin.</i> High-Re solutions for incompressible flow using the Navier–Stokes equations and a multigrid method. Journal of Computational Physics 48(3), 387–411, 1982.</span></li>
-      <li><span><i>G. I. Taylor, A. E. Green.</i> Mechanism of the production of small eddies from large ones. Proceedings of the Royal Society A 158(895), 499–521, 1937.</span></li>
-      <li><span><i>N. J. Higham, T. Mary.</i> Mixed precision algorithms in numerical linear algebra. Acta Numerica 31, 347–414, 2022.</span></li>
-      <li><span><i>J. Stam.</i> Stable fluids. Proceedings of SIGGRAPH 1999, 121–128.</span></li>
-      <li><span><i>S. Williams, A. Waterman, D. Patterson.</i> Roofline: an insightful visual performance model for multicore architectures. Communications of the ACM 52(4), 65–76, 2009.</span></li>
+      <li><span><i>S. Somerstep, F. Maia Polo, A. F. M. de Oliveira, P. Mangal, M. Silva, O. Bhardwaj, M. Yurochkin, S. Maity.</i> CARROT: a cost aware rate optimal router. arXiv:2502.03261, 2025. Source of the SPROUT data and its price table.</span></li>
+      <li><span><i>I. Ong, A. Almahairi, V. Wu, W.-L. Chiang, T. Wu, J. E. Gonzalez, M. W. Kadous, I. Stoica.</i> RouteLLM: learning to route LLMs with preference data. arXiv:2406.18665, 2024.</span></li>
+      <li><span><i>Q. J. Hu, J. Bieker, X. Li, N. Jiang, B. Keigwin, G. Ranganath, K. Keutzer, S. K. Upadhyay.</i> RouterBench: a benchmark for multi-LLM routing system. arXiv:2403.12031, 2024.</span></li>
+      <li><span><i>L. Chen, M. Zaharia, J. Zou.</i> FrugalGPT: how to use large language models while reducing cost and improving performance. arXiv:2305.05176, 2023.</span></li>
+      <li><span><i>A. N. Angelopoulos, S. Bates, E. J. Candès, M. I. Jordan, L. Lei.</i> Learn then test: calibrating predictive algorithms to achieve risk control. arXiv:2110.01052, 2021.</span></li>
+      <li><span><i>I. Waudby-Smith, A. Ramdas.</i> Estimating means of bounded random variables by betting. Journal of the Royal Statistical Society B 86(1), 1–27, 2024.</span></li>
+      <li><span><i>L. Guttman.</i> A basis for scaling qualitative data. American Sociological Review 9(2), 139–150, 1944.</span></li>
+      <li><span><i>J. E. Smith, R. L. Winkler.</i> The optimizer's curse: skepticism and postdecision surprise in decision analysis. Management Science 52(3), 311–322, 2006.</span></li>
+      <li><span><i>W. Hoeffding.</i> Probability inequalities for sums of bounded random variables. Journal of the American Statistical Association 58(301), 13–30, 1963.</span></li>
+      <li><span><i>L. Li, W. Chu, J. Langford, R. E. Schapire.</i> A contextual-bandit approach to personalized news article recommendation. WWW 2010, 661–670.</span></li>
+      <li><span><i>S. Agrawal, N. Goyal.</i> Thompson sampling for contextual bandits with linear payoffs. ICML 2013, 127–135.</span></li>
+      <li><span><i>M. Dudík, J. Langford, L. Li.</i> Doubly robust policy evaluation and learning. ICML 2011, 1097–1104.</span></li>
+      <li><span><i>A. Swaminathan, T. Joachims.</i> The self-normalized estimator for counterfactual learning. NeurIPS 2015, 3231–3239.</span></li>
+      <li><span><i>H. Bastani, M. Bayati, K. Khosravi.</i> Mostly exploration-free algorithms for contextual bandits. Management Science 67(3), 1329–1349, 2021.</span></li>
     </ol>
   </section>
 
@@ -231,170 +286,243 @@ python export_site_data.py     <span class="c"># copies the numbers this page re
 <script src="../assets/navmenu.js"></script>
 <script src="../assets/plot.js"></script>
 <script>
-let D = null, abN = "128", re = "100";
+let D = null;
 const $ = id => document.getElementById(id);
+const pct = (v, d = 1) => (100 * v).toFixed(d) + "%";
+const usd = v => "$" + (v < 1 ? v.toFixed(3) : v.toFixed(2));
+const usdx = v => v >= 1 ? "$" + v : "$" + v.toString().replace(/^0/, "0");
+const GPT4O = 2, MINI = 3;
+// colour by price: cheap models sage, mid powder, dear lavender
+function mixc(a, b, t) { const p = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16)); const A = p(a), B = p(b);
+  return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); }
+let modelColor = [];
 
-function drawConv() {
-  const svg = $("conv"); svg.innerHTML = "";
-  const c = D.convergence;
-  const a = axes(svg, { W: 860, H: 300, L: 56, R: 12, T: 20, B: 30, x0: 24, x1: 1400, y0: 3e-8, y1: 2e-4, xlog: true, ylog: true,
-    xt: c.f64.N, yt: [1e-7, 1e-6, 1e-5, 1e-4], yfmt: pow10, xl: "N (cells per side)" });
-  const ref = [[24, 6.26e-5 * (32 / 24) ** 2], [1400, 6.26e-5 * (32 / 1400) ** 2]].map(p => [a.sx(p[0]), a.sy(p[1])]);
-  mk(svg, "path", { d: poly(ref), stroke: C.sage, "stroke-width": 1.4, fill: "none" });
-  const line = (k, sty) => { const pts = c[k].N.map((n, i) => [a.sx(n), a.sy(c[k].linf[i])]);
-    mk(svg, "path", Object.assign({ d: poly(pts), fill: "none", "stroke-width": 1.6 }, sty));
-    pts.forEach(p => mk(svg, "circle", { cx: p[0], cy: p[1], r: 2.6, fill: sty.stroke })); };
-  line("f32", { stroke: C.graphite, "stroke-dasharray": "4 3" });
-  line("f64", { stroke: C.lavD });
+function setupColors() {
+  const cost = D.single.map(s => s.cost_per_1k), lo = Math.log(Math.min(...cost)), hi = Math.log(Math.max(...cost));
+  modelColor = cost.map(c => { const t = (Math.log(c) - lo) / (hi - lo);
+    return t < 0.5 ? mixc("#A3B59B", "#6F95BA", t * 2) : mixc("#6F95BA", "#5A4F96", (t - 0.5) * 2); });
 }
 
-function drawRes() {
-  const svg = $("res"); svg.innerHTML = "";
-  const h = D.residual_history_N1024;
-  const a = axes(svg, { W: 860, H: 280, L: 56, R: 12, T: 20, B: 30, x0: 0, x1: 16, y0: 1e-15, y1: 2, ylog: true,
-    xt: [0, 2, 4, 6, 8, 10, 12, 14, 16], yt: [1e-14, 1e-11, 1e-8, 1e-5, 1e-2, 1], yfmt: pow10, xl: "V-cycle" });
-  const line = (k, sty) => mk(svg, "path", Object.assign({ d: poly(h[k].map((y, i) => [a.sx(i), a.sy(y)])), fill: "none", "stroke-width": 1.7 }, sty));
-  line("f32", { stroke: C.graphite, "stroke-dasharray": "4 3" });
-  line("f64", { stroke: C.lavD });
-  line("mixed", { stroke: C.sageD, "stroke-dasharray": "1 3", "stroke-width": 2.4, "stroke-linecap": "round" });
+function drawMods() {
+  const svg = $("mods"); svg.innerHTML = "";
+  const a = axes(svg, { W: 860, H: 380, L: 56, R: 18, T: 22, B: 32, x0: 0.04, x1: 14, y0: 0.4, y1: 0.9, xlog: true,
+    xt: [0.05, 0.1, 0.3, 1, 3, 10], xfmt: v => "$" + v, yt: [0.4, 0.5, 0.6, 0.7, 0.8, 0.9], xl: "cost per 1,000 prompts", yl: "mean score" });
+  const h = D.single_hull;
+  mk(svg, "path", { d: poly(h.map(p => [a.sx(p[0]), a.sy(p[1])])), fill: "none", stroke: C.ink, "stroke-width": 1.2, "stroke-dasharray": "4 3" });
+  const place = { "Llama 3.2 1B": [8, 14], "Llama 3.2 3B": [-8, -10, "end"], "Granite 3 2B": [8, 4], "Granite 3 8B": [8, 14], "Llama 3.1 8B": [8, 4],
+    "GPT-4o mini": [-8, -10, "end"], "Mixtral 8x7B": [8, 14], "Llama 3.3 70B": [8, 14], "Titan Premier": [8, 4], "Llama 3.1 70B": [4, -16],
+    "Llama 3.1 405B": [8, 14], "GPT-4o": [-8, -10, "end"], "Claude 3.5 Sonnet": [-8, 16, "end"] };
+  D.single.forEach((s, k) => { const x = a.sx(s.cost_per_1k), y = a.sy(s.score), o = place[s.model] || [8, 4];
+    mk(svg, "circle", { cx: x, cy: y, r: 4.5, fill: modelColor[k] });
+    txt(svg, x + o[0], y + o[1], s.model, { fill: C.ink, "text-anchor": o[2] || "start" }); });
+  const g = D.single[GPT4O], m = D.single[MINI];
+  $("modscap").innerHTML = `<b>Figure 1.</b> Colour follows price. The dashed line is the hull of single models, everything a router can reach without reading the prompt, by mixing two models at random. Models below it are beaten at their own price by such a mix.`;
+  const words = ["zero", "one", "two", "three", "four", "five", "six", "seven"];
+  const onHull = [...D.single].sort((x, y) => x.cost_per_1k - y.cost_per_1k).filter(s => h.some(p => Math.abs(p[0] - s.cost_per_1k) < 1e-4 && Math.abs(p[1] - s.score) < 1e-4)).map(s => s.model);
+  $("modstext").innerHTML = `GPT-4o scores ${g.score.toFixed(3)} at ${usd(g.cost_per_1k)} per thousand prompts. GPT-4o mini scores ${m.score.toFixed(3)} at ${usd(m.cost_per_1k)}, so it keeps ${pct(m.score / g.score, 0)} of the score for ${pct(m.cost_per_1k / g.cost_per_1k, 0)} of the price. Only ${words[onHull.length] || onHull.length} models lie on the hull, ${onHull.slice(0, -1).join(", ")} and ${onHull.slice(-1)}. Claude 3.5 Sonnet, the most expensive, scores ${D.single[0].score.toFixed(3)}, below GPT-4o.`;
 }
 
-function drawAbl() {
-  const svg = $("abl"); svg.innerHTML = "";
-  const rows = D.ablation[abN], W = 860, L = 250, R = 90, T = 10, rowH = 46, base = rows[0].ms;
-  const xmax = Math.max(...rows.map(r => r.hi)) * 1.18, sx = v => L + v / xmax * (W - L - R);
-  rows.forEach((r, i) => {
-    const y = T + i * rowH;
-    txt(svg, 0, y + 20, r.name, { fill: C.ink, "font-family": "Geist", "font-size": 13 });
-    mk(svg, "rect", { x: L, y: y + 8, width: sx(r.ms) - L, height: 18, fill: i === rows.length - 1 ? C.lav : C.stone, stroke: i === rows.length - 1 ? C.lavD : C.rule });
-    mk(svg, "line", { x1: sx(r.lo), x2: sx(r.hi), y1: y + 17, y2: y + 17, stroke: C.graphite });
-    txt(svg, sx(r.hi) + 8, y + 21, `${r.ms.toFixed(r.ms < 10 ? 2 : 1)} ms`, { fill: C.ink });
-    txt(svg, W, y + 21, `${r.syncs.toFixed(0)} syncs`, { "text-anchor": "end" });
-    if (i) txt(svg, sx(r.hi) + 8, y + 36, `${(base / r.ms).toFixed(1)}× vs baseline`, { "font-size": 10 });
+function drawHeat() {
+  const svg = $("heat"); svg.innerHTML = "";
+  const S = D.structure, rows = S.heatmap, K = S.order.length, L = 130, T = 8, cw = (860 - L - 6) / rows.length, ch = (250 - T - 14) / K;
+  S.order.forEach((m, k) => {
+    txt(svg, L - 10, T + ch * k + ch / 2 + 4, m, { "text-anchor": "end", fill: C.graphite });
+    let d = "";
+    rows.forEach((r, i) => { if (r[k] === "1") d += `M${(L + i * cw).toFixed(2)},${(T + k * ch).toFixed(2)}h${(cw + .05).toFixed(2)}v${(ch - 1.2).toFixed(2)}h-${(cw + .05).toFixed(2)}Z`; });
+    mk(svg, "rect", { x: L, y: T + k * ch, width: rows.length * cw, height: ch - 1.2, fill: C.stone });
+    mk(svg, "path", { d, fill: C.lavD });
   });
-  svg.setAttribute("viewBox", `0 0 ${W} ${T + rows.length * rowH + 6}`);
+  const st = D.structure;
+  $("guttext").innerHTML = `The data is close to a staircase, but not equal to one. Averaged over all pairs of models, the weaker model is right while the stronger is wrong on ${pct(st.guttman_obs)} of prompts. If the two answered independently with the same accuracies it would be ${pct(st.guttman_indep)}. So difficulty is shared, but not entirely. GPT-4o mini is right where GPT-4o is wrong on ${pct(st.gpt4o_wrong_mini_right)} of all prompts, and the reverse happens on ${pct(st.gpt4o_right_mini_wrong)}. That ${pct(st.gpt4o_wrong_mini_right)} is what a router hopes to find.`;
 }
 
-function drawThr() {
-  const svg = $("thr"); svg.innerHTML = "";
-  const t = D.throughput, N = t.N;
-  const a = axes(svg, { W: 860, H: 300, L: 56, R: 12, T: 20, B: 30, x0: 100, x1: 2600, y0: 1.5, y1: 600, xlog: true, ylog: true,
-    xt: N, yt: [2, 5, 10, 20, 50, 100, 200, 500], yfmt: v => v + " ms", xl: "N (cells per side)" });
-  const series = [["f64 (milestone 1)", { stroke: C.faint, "stroke-dasharray": "2 3" }], ["f64", { stroke: C.graphite, "stroke-dasharray": "4 3" }],
-    ["mixed", { stroke: C.powderD }], ["mixed + blocked smoother", { stroke: C.lavD, "stroke-width": 2 }]];
-  series.forEach(([k, sty]) => { const pts = N.map((n, i) => [a.sx(n), a.sy(t[k][i])]);
-    mk(svg, "path", Object.assign({ d: poly(pts), fill: "none", "stroke-width": 1.5 }, sty));
-    pts.forEach(p => mk(svg, "circle", { cx: p[0], cy: p[1], r: 2.4, fill: sty.stroke })); });
-  $("thrleg").innerHTML = series.map(([k, sty]) => `<span><i class="sw${sty["stroke-dasharray"] ? " dash" : ""}" style="background:${sty.stroke}"></i>${k}</span>`).join("");
-}
-
-const kname = n => n.replace(/^k_/, "").replace(/<.*$/, "") + (/,\s*(0|false)>/.test(n) ? " · branch" : /,\s*(1|true)>/.test(n) ? " · compact" : "");
-function drawRoof() {
-  const svg = $("roof"); svg.innerHTML = "";
-  const R = D.roofline, c = R.ceilings, W = 860, H = 400;
-  const a = axes(svg, { W, H, L: 60, R: 14, T: 26, B: 32, x0: 0.05, x1: 100, y0: 3, y1: 10000, xlog: true, ylog: true,
-    xt: [0.1, 1, 10, 100], yt: [10, 100, 1000, 10000], yfmt: v => v >= 1000 ? v / 1000 + "k" : v,
-    xl: "arithmetic intensity · FLOP per DRAM byte", yl: "GFLOP/s" });
-  const bw = c.dram_GBps_spec, f32 = c.sms * 128 * 2 * c.sm_clock_GHz;     // 128 FP32 lanes per Ampere GA10x SM
-  const roofs = [[f32, C.powderD, "", `FP32 peak ${(f32 / 1000).toFixed(1)} TFLOP/s (from lane count, not measured)`],
-                 [c.fp64_GFLOPs_all_fma, C.lavD, "5 4", `FP64, every instruction an FMA · ${c.fp64_GFLOPs_all_fma}`],
-                 [c.fp64_GFLOPs_no_fma, C.lavD, "", `FP64, no FMAs · ${c.fp64_GFLOPs_no_fma}`]];
-  mk(svg, "path", { d: poly([[a.sx(0.05), a.sy(bw * 0.05)], [a.sx(f32 / bw), a.sy(f32)]]), stroke: C.ink, "stroke-width": 1.3, fill: "none" });
-  txt(svg, a.sx(0.09), a.sy(bw * 0.09) - 10, `DRAM ${bw} GB/s`, { fill: C.ink, transform: `rotate(-${Math.atan2(a.sy(1) - a.sy(10), a.sx(10) - a.sx(1)) * 180 / Math.PI} ${a.sx(0.09)} ${a.sy(bw * 0.09) - 10})` });
-  roofs.forEach(([p, col, dash, lab]) => {
-    mk(svg, "line", { x1: a.sx(p / bw), x2: W - 14, y1: a.sy(p), y2: a.sy(p), stroke: col, "stroke-width": 1.3, "stroke-dasharray": dash });
-    txt(svg, W - 16, a.sy(p) - 6, lab, { "text-anchor": "end", fill: col });
+function drawInv() {
+  const svg = $("inv"); svg.innerHTML = "";
+  const S = D.structure, K = S.order.length, L = 150, T = 112, c = 33;
+  const vmax = Math.max(...S.inversion.flat());
+  S.order.forEach((m, i) => {
+    txt(svg, L - 10, T + c * i + c / 2 + 4, m, { "text-anchor": "end", fill: C.graphite });
+    const tx = L + c * i + c / 2;
+    mk(svg, "text", { x: tx, y: T - 8, "font-size": 11, fill: C.graphite, "font-family": "Geist Mono", transform: `rotate(-45 ${tx} ${T - 8})` }, m);
+    S.order.forEach((_, j) => { const v = S.inversion[i][j];
+      if (i === j) { mk(svg, "rect", { x: L + c * j, y: T + c * i, width: c - 2, height: c - 2, fill: "#F1EEE8" }); return; }
+      mk(svg, "rect", { x: L + c * j, y: T + c * i, width: c - 2, height: c - 2, fill: mixc("#F4F1EC", "#5A4F96", Math.sqrt(v / vmax)) });
+      txt(svg, L + c * j + (c - 2) / 2, T + c * i + c / 2 + 3, (100 * v).toFixed(0), { "text-anchor": "middle", "font-size": 9.5, fill: v / vmax > .45 ? "#FBFAF7" : C.graphite }); });
   });
-  const pts = R.kernels.filter(k => k.grid > 1).map(k => {
-    const f64 = k.prec === "f64", x = f64 ? k.intensity64 : k.intensity32, y = f64 ? k.GFLOPs64 : k.GFLOPs32;
-    return { k, f64, X: a.sx(x), Y: a.sy(y), name: kname(k.kernel) };
+  txt(svg, L + c * K + 16, T + 14, "row right, column wrong", { fill: C.ink });
+  txt(svg, L + c * K + 16, T + 32, "per cent of prompts", { fill: C.faint });
+}
+
+function drawFront() {
+  const svg = $("front"); svg.innerHTML = "";
+  const a = axes(svg, { W: 860, H: 400, L: 56, R: 18, T: 22, B: 32, x0: 0.04, x1: 14, y0: 0.6, y1: 1.0, xlog: true,
+    xt: [0.05, 0.1, 0.3, 1, 3, 10], xfmt: v => "$" + v, yt: [0.6, 0.7, 0.8, 0.9, 1.0], xl: "cost per 1,000 prompts", yl: "mean score" });
+  const clip = h => h.filter(p => p[0] >= 0.04 && p[0] <= 14 && p[1] >= 0.6);
+  const line = (h, o) => mk(svg, "path", Object.assign({ d: poly(clip(h).map(p => [a.sx(p[0]), a.sy(p[1])])), fill: "none" }, o));
+  line(D.oracle.hull, { stroke: C.faint, "stroke-width": 1.2, "stroke-dasharray": "2 3" });
+  line(D.single_hull, { stroke: C.ink, "stroke-width": 1.2, "stroke-dasharray": "4 3" });
+  line(D.routers.family.hull, { stroke: C.sageD, "stroke-width": 1.5 });
+  line(D.routers.ensemble.hull, { stroke: C.lavD, "stroke-width": 2 });
+  D.single.forEach((s, k) => s.score >= 0.6 && mk(svg, "circle", { cx: a.sx(s.cost_per_1k), cy: a.sy(s.score), r: 3.2, fill: "#FBFAF7", stroke: modelColor[k], "stroke-width": 1.5 }));
+  const g = D.single[GPT4O];
+  mk(svg, "line", { x1: a.sx(0.04), x2: 842, y1: a.sy(g.score), y2: a.sy(g.score), stroke: C.stone });
+  txt(svg, a.sx(g.cost_per_1k) - 8, a.sy(g.score) + 16, "GPT-4o", { "text-anchor": "end", fill: C.graphite });
+  txt(svg, a.sx(0.3), a.sy(0.985), "hindsight oracle", { fill: C.faint });
+  svg._a = a;
+  const mark = mk(svg, "circle", { cx: 0, cy: 0, r: 6, fill: "none", stroke: C.ink, "stroke-width": 1.6 }); svg._mark = mark;
+  $("frontleg").innerHTML = `<span><i class="sw" style="background:${C.lavD}"></i>ensemble text router</span><span><i class="sw" style="background:${C.sageD}"></i>benchmark-label router</span><span><i class="sw dash"></i>hull of single models</span><span>dotted: hindsight oracle</span><span>○ single models</span>`;
+  const R = D.routers.ensemble, F = D.routers.family;
+  $("frontcap").innerHTML = `<b>Figure 4.</b> Frontiers are upper hulls of the Lagrangian router's points over 161 values of \\(\\lambda\\), read on the test prompts. The oracle leaves the plot, matching GPT-4o's score at ${pct(D.oracle.cost_frac_match_gpt4o)} of its cost. The bar shows which models the ensemble router uses at the chosen \\(\\lambda\\), cheapest model on the left.`;
+  if (window.renderMathInElement) renderMathInElement($("frontcap"), { delimiters: [{ left: "\\(", right: "\\)", display: false }] });
+}
+
+function updateShares() {
+  const sh = D.shares[+$("lam").value], svg = $("front"), a = svg._a;
+  svg._mark.setAttribute("cx", a.sx(Math.max(0.04, sh.cost_per_1k))); svg._mark.setAttribute("cy", a.sy(sh.score));
+  $("lamv").textContent = sh.lam === 0 ? "0" : sh.lam >= 1000 ? Math.round(sh.lam).toLocaleString() : sh.lam.toFixed(1);
+  $("costv").textContent = usd(sh.cost_per_1k); $("scorev").textContent = sh.score.toFixed(3);
+  const order = D.single.map((s, k) => k).sort((x, y) => D.single[x].cost_per_1k - D.single[y].cost_per_1k);
+  $("bar").innerHTML = order.map(k => `<span title="${D.models[k]} ${pct(sh.share[k])}" style="width:${100 * sh.share[k]}%;background:${modelColor[k]}"></span>`).join("");
+  $("barleg").innerHTML = order.map(k => `<span class="${sh.share[k] < 0.005 ? "z" : ""}"><i style="background:${modelColor[k]}"></i>${D.models[k]} ${pct(sh.share[k], 0)}</span>`).join("");
+}
+
+function drawTables() {
+  const R = D.routers, B = D.bootstrap, ref = D.refs;
+  const names = { family: "Benchmark label", ridge: "Text, ridge", gbm: "Text, boosted trees", ensemble: "Ensemble of the two" };
+  let h = "<tr><th>router</th><th>cost to match GPT-4o</th><th>score at GPT-4o mini's cost</th><th>best score</th><th>gain over fixed models</th></tr>";
+  h += `<tr><td>Single models, mixed</td><td>100%</td><td>${ref.mini_score.toFixed(3)}</td><td>${ref.gpt4o_score.toFixed(3)}</td><td>0</td></tr>`;
+  ["family", "ridge", "gbm", "ensemble"].forEach(k => { const r = R[k];
+    h += `<tr><td>${names[k]}</td><td${k === "ensemble" ? ' class="best"' : ""}>${pct(r.cost_frac_match_gpt4o)}</td><td>${r.score_at_mini_cost.toFixed(3)}</td><td>${r.max_score.toFixed(3)}</td><td>${(100 * r.area_gain).toFixed(1)} pts</td></tr>`; });
+  h += `<tr><td>Hindsight oracle</td><td>${pct(D.oracle.cost_frac_match_gpt4o)}</td><td>·</td><td>${D.oracle.max_score.toFixed(3)}</td><td>·</td></tr>`;
+  $("rtab").innerHTML = h;
+  $("rtabcap").innerHTML = `<b>Table 1.</b> Test prompts. "Gain over fixed models" is the mean score above the single-model hull, averaged over log cost from the cheapest to the dearest model. For the ensemble, 95% bootstrap intervals over test prompts are ${pct(B.cost_frac[0])} to ${pct(B.cost_frac[1])} for the cost to match GPT-4o, ${(100 * B.score_at_mini[0]).toFixed(1)} to ${(100 * B.score_at_mini[1]).toFixed(1)} points above GPT-4o mini at its cost, and ${(100 * B.gain_vs_gpt4o[0]).toFixed(1)} to ${(100 * B.gain_vs_gpt4o[1]).toFixed(1)} points for the best score above GPT-4o's.`;
+  const E = R.ensemble, V = D.val_chosen;
+  $("rtext").innerHTML = `The ensemble matches GPT-4o's score at ${pct(E.cost_frac_match_gpt4o)} of its cost. At GPT-4o mini's price it scores ${E.score_at_mini_cost.toFixed(3)} against ${ref.mini_score.toFixed(3)}. Its best point, ${E.max_score.toFixed(3)}, is above every single model, at ${pct(E.max_score_cost_frac, 0)} of GPT-4o's cost. These figures read \\(\\lambda\\) off the test curve itself. Choosing \\(\\lambda\\) on the validation prompts instead, as one would in practice, gives ${V.test_score.toFixed(3)} at ${pct(V.test_cost_frac)} of the cost. That point matched GPT-4o on validation and falls ${(100 * (ref.gpt4o_score - V.test_score)).toFixed(1)} points short of it on test. Section 9 explains why, and fixes it.`;
+
+  let f = "<tr><th>benchmark</th><th>test prompts</th><th>GPT-4o</th><th>best single model</th><th>gain within benchmark</th></tr>";
+  const fam = D.by_family, ord = Object.keys(fam).sort((x, y) => fam[y].n - fam[x].n);
+  ord.forEach(k => { const r = fam[k], g = r.ridge_area_gain;
+    f += `<tr><td>${k}</td><td>${r.n.toLocaleString()}</td><td>${r.gpt4o.toFixed(3)}</td><td>${r.single_best_model}, ${r.single_best.toFixed(3)}</td><td class="${g < 0 ? "neg" : ""}">${g >= 0 ? "+" : "−"}${Math.abs(100 * g).toFixed(1)} pts</td></tr>`; });
+  $("famtab").innerHTML = f;
+  const gains = ord.map(k => fam[k].ridge_area_gain), pos = gains.filter(g => g > 0), neg = ord.filter(k => fam[k].ridge_area_gain < 0);
+  $("famtext").innerHTML = `Within MATH, Llama 3.3 70B alone scores ${fam.MATH.single_best.toFixed(3)}, well ahead of GPT-4o's ${fam.MATH.gpt4o.toFixed(3)}, at a fraction of the price. Within MMLU-Pro and OpenHermes, GPT-4o is the best single model. Much of the router's advantage is therefore learning which model suits which kind of task, and the benchmark-label router, which knows nothing else, already brings the cost of matching GPT-4o down to ${pct(R.family.cost_frac_match_gpt4o, 0)}. Reading the prompt adds less than the headline suggests. Against the best fixed mix within each benchmark, the text router gains ${(100 * Math.min(...pos)).toFixed(1)} to ${(100 * Math.max(...pos)).toFixed(1)} points on ${pos.length} benchmarks${neg.length ? ` and loses ${neg.map(k => (100 * -fam[k].ridge_area_gain).toFixed(1) + " on " + k).join(", ")}, the smallest` : ""}.`;
+}
+
+function drawLofo() {
+  const L = D.lofo, fam = D.by_family;
+  let h = "<tr><th>held-out benchmark</th><th>test prompts</th><th>router, in distribution</th><th>router, never saw it</th><th>fixed ranking, never saw it</th></tr>";
+  const sg = v => `${v >= 0 ? "+" : "−"}${Math.abs(100 * v).toFixed(1)} pts`;
+  Object.keys(L).forEach(k => { const r = L[k];
+    h += `<tr><td>${k}</td><td>${r.n_test.toLocaleString()}</td><td class="${fam[k].ridge_area_gain < 0 ? "neg" : ""}">${sg(fam[k].ridge_area_gain)}</td><td class="${r.area_gain < 0 ? "neg" : ""}">${sg(r.area_gain)}</td><td class="${r.area_gain_fixed_ranking < 0 ? "neg" : ""}">${r.area_gain_fixed_ranking == null ? "·" : sg(r.area_gain_fixed_ranking)}</td></tr>`; });
+  $("lofotab").innerHTML = h;
+  const ks = Object.keys(L), worse = ks.filter(k => L[k].area_gain < 0).length;
+  const beatsFixed = ks.filter(k => L[k].area_gain_fixed_ranking != null && L[k].area_gain > L[k].area_gain_fixed_ranking).length;
+  $("lofotext").innerHTML = `On a benchmark it never saw, the router falls below the best fixed mix for that benchmark ${worse === ks.length ? "every time" : `on ${worse} of ${ks.length}`}, by ${(100 * Math.min(...ks.map(k => -L[k].area_gain))).toFixed(1)} to ${(100 * Math.max(...ks.map(k => -L[k].area_gain))).toFixed(1)} points. It beats the equally uninformed fixed ranking on ${beatsFixed} of ${ks.length}. Reading the text does not transfer what the router learned about one kind of task to another. On new work, labelled examples of that work, enough to find the best fixed model for it, are worth more than the router.`;
+}
+
+function drawLuck() {
+  const svg = $("luck"); svg.innerHTML = "";
+  const U = D.luck;
+  const a = axes(svg, { W: 860, H: 230, L: 30, R: 30, T: 30, B: 34, x0: 0.84, x1: 1.0, y0: 0, y1: 1,
+    xt: [0.84, 0.88, 0.92, 0.96, 1.0], xfmt: v => v.toFixed(2), yt: [], xl: "share right" });
+  // [value, label, row, colour, label above?, anchor]
+  const pts = [[U.best_single_binary, "best single model", 0.22, C.graphite, false, "start"], [U.belief_router, "ensemble router", 0.22, C.lavD, true, "start"],
+    [U.belief_router_expected, "what the router expected", 0.62, C.faint, true, "start"], [U.oracle_binary, "hindsight oracle", 0.22, C.ink, true, "end"],
+    [U.sim_oracle_mean, "oracle if errors were independent", 0.62, C.faint, true, "end"]];
+  mk(svg, "line", { x1: a.sx(0.84), x2: a.sx(1), y1: a.sy(0.22), y2: a.sy(0.22), stroke: C.rule });
+  pts.forEach(([v, n, y, col, up, anc]) => { const x = a.sx(v), cy = a.sy(y); mk(svg, "circle", { cx: x, cy, r: 5, fill: col });
+    const y1 = up ? cy - 8 : cy + 8, y2 = up ? cy - 22 : cy + 18;
+    mk(svg, "line", { x1: x, x2: x, y1, y2, stroke: col });
+    txt(svg, x + (anc === "end" ? 4 : -4), up ? cy - 28 : cy + 31, `${n} ${v.toFixed(3)}`, { fill: col, "text-anchor": anc }); });
+  $("luckcap").innerHTML = `<b>Figure 5.</b> Test prompts, a score of at least 0.5 counted as right. The two grey points come from the router's calibrated probabilities, the first by averaging them, the second by simulating 200 sets of 13 independent answers from them.`;
+  $("lucktext").innerHTML = `The router's estimates were first calibrated on the validation prompts with isotonic regression, so that a prediction of 0.7 means right about 70% of the time. If the 13 models erred independently given those probabilities, luck alone would carry the oracle to ${U.sim_oracle_mean.toFixed(4)}. The real oracle reaches ${U.oracle_binary.toFixed(3)}, so errors are shared. After subtracting what the router predicts, the right-or-wrong outcomes of two models are still correlated at ${U.mean_pairwise_corr_resid.toFixed(2)} on average, against ${U.mean_pairwise_corr_raw.toFixed(2)} before. Prompts that defeat one model tend to defeat several, for reasons the text features do not see. Some of that shared difficulty may be predictable with better features. Whatever cannot be predicted from the prompt is luck, and no router can have it.<br><br>The same probabilities show the optimizer's curse<sup class="r"><a href="#refs">[8]</a></sup>. Choosing the model with the highest predicted chance, the router expects ${U.belief_router_expected.toFixed(3)} and gets ${U.belief_router.toFixed(3)}. Each probability is calibrated on its own, but the largest of several noisy estimates is biased upward, the effect Smith and Winkler described in decision analysis.`;
+}
+
+function drawCert() {
+  const svg = $("cert"); svg.innerHTML = "";
+  const G = D.guarantee;
+  const a = axes(svg, { W: 860, H: 330, L: 56, R: 18, T: 22, B: 32, x0: 200, x1: 5000, y0: 0, y1: 1.05, xlog: true,
+    xt: [250, 500, 1000, 2000, 4000], yt: [0, 0.25, 0.5, 0.75, 1.0], yfmt: v => (100 * v) + "%", xl: "calibration prompts n", yl: "cost / GPT-4o" });
+  mk(svg, "line", { x1: a.sx(200), x2: 842, y1: a.sy(G.best_feasible_cost_frac), y2: a.sy(G.best_feasible_cost_frac), stroke: C.sageD, "stroke-dasharray": "4 3" });
+  txt(svg, 840, a.sy(G.best_feasible_cost_frac) - 6, `cheapest router that truly meets the target · ${pct(G.best_feasible_cost_frac)}`, { "text-anchor": "end", fill: C.sageD });
+  txt(svg, 840, a.sy(1) - 6, "always GPT-4o", { "text-anchor": "end" });
+  [["betting", C.lavD], ["hoeffding", "#6F95BA"]].forEach(([m, col]) => { const rs = G.runs.filter(r => r.method === m);
+    mk(svg, "path", { d: poly(rs.map(r => [a.sx(r.n), a.sy(r.cost_frac_mean)])), fill: "none", stroke: col, "stroke-width": 1.6 });
+    rs.forEach(r => { mk(svg, "circle", { cx: a.sx(r.n), cy: a.sy(r.cost_frac_mean), r: 3.6, fill: col });
+      txt(svg, a.sx(r.n) + 6, a.sy(r.cost_frac_mean) + (m === "betting" ? 16 : -8), pct(r.violation), { fill: col }); }); });
+  const b4 = G.runs.find(r => r.method === "betting" && r.n === 4000), b250 = G.runs.find(r => r.method === "betting" && r.n === 250);
+  $("certcap").innerHTML = `<b>Figure 6.</b> Mean over 1,000 calibration samples per point, including runs that abstain and send everything to GPT-4o. Labels give the share of runs whose chosen router missed the target, which the procedure promises to keep below 10%.`;
+  let h = "<tr><th>n</th><th>naive, missed target</th><th>Hoeffding, missed</th><th>betting, missed</th><th>betting, abstained</th><th>betting, mean cost</th></tr>";
+  [250, 500, 1000, 2000, 4000].forEach(n => { const hf = G.runs.find(r => r.n === n && r.method === "hoeffding"), bt = G.runs.find(r => r.n === n && r.method === "betting"), nv = G.naive.find(r => r.n === n);
+    h += `<tr><td>${n.toLocaleString()}</td><td${nv ? ' class="neg"' : ""}>${nv ? pct(nv.violation) : "·"}</td><td>${pct(hf.violation)}</td><td>${pct(bt.violation)}</td><td>${pct(bt.abstain, 0)}</td><td>${pct(bt.cost_frac_mean, 0)}</td></tr>`; });
+  $("certtab").innerHTML = h;
+  const nvmin = Math.min(...G.naive.map(r => r.violation)), nvmax = Math.max(...G.naive.map(r => r.violation));
+  const vmax = Math.max(...G.runs.map(r => r.violation));
+  $("certtext").innerHTML = `The naive rule misses the target in ${pct(nvmin, 0)} to ${pct(nvmax, 0)} of runs, whatever the sample size, because it always lands on a point whose true score sits at the edge. Both certified rules stay within their promise, at most ${pct(vmax)} against the 10% allowed. The price is caution. With 250 calibration prompts the betting rule abstains in ${pct(b250.abstain, 0)} of runs, and with 4,000 it brings the mean cost down to ${pct(b4.cost_frac_mean, 0)} of GPT-4o, still far above the ${pct(G.best_feasible_cost_frac)} that is truly achievable. The router clears GPT-4o by only about two points, and certifying a margin that small takes thousands of samples. Hoeffding's bound ignores how concentrated the scores are and needs even more. A product owner who wants a signed promise should expect to pay for it in calibration data.`;
+}
+
+const ALGO = { greedy: ["greedy", "#1D1E20"], "egreedy_0.05": ["ε-greedy 5%", "#9FBCD6"], "egreedy_0.2": ["ε-greedy 20%", "#6F95BA"],
+  "linucb_0.3": ["LinUCB α = 0.3", "#9D93C8"], "linucb_1.0": ["LinUCB α = 1", "#6F64A8"], "thompson_0.3": ["Thompson", "#A3B59B"], full: ["full information", "#8A8C8F"] };
+let lamSel = "100";
+function drawBandit() {
+  const B = D.m2.bandit[lamSel + ".0"], svg = $("reg"); svg.innerHTML = "";
+  const all = Object.values(B.algos).flatMap(a => a.regret_mean), ymax = Math.max(...all), ymin = Math.min(0, ...all);
+  const step = ymax > 2500 ? 1000 : 500, yt = []; for (let v = Math.ceil(ymin / step) * step; v <= ymax; v += step) yt.push(v === 0 ? 0 : v);
+  const a = axes(svg, { W: 860, H: 340, L: 64, R: 18, T: 22, B: 32, x0: 50, x1: 40000, y0: ymin * 1.05, y1: ymax * 1.08, xlog: true,
+    xt: [100, 1000, 10000], xfmt: v => v.toLocaleString(), yt, yfmt: v => v.toLocaleString(), xl: "prompts seen", yl: "cumulative regret" });
+  mk(svg, "line", { x1: 64, x2: 842, y1: a.sy(0), y2: a.sy(0), stroke: C.rule });
+  txt(svg, 840, a.sy(0) - 6, "best fixed model, GPT-4o mini", { "text-anchor": "end" });
+  Object.entries(B.algos).forEach(([k, d]) => { const [n, col] = ALGO[k];
+    mk(svg, "path", { d: poly(d.t.map((t, i) => [a.sx(t), a.sy(d.regret_mean[i])])), fill: "none", stroke: col, "stroke-width": k === "greedy" || k === "full" ? 2 : 1.4, "stroke-dasharray": k === "full" ? "4 3" : "" }); });
+  $("regleg").innerHTML = Object.entries(ALGO).map(([k, [n, col]]) => `<span><i class="sw" style="background:${col}"></i>${n}</span>`).join("");
+  const g = B.algos.greedy, f = B.algos.full;
+  $("regcap").innerHTML = `<b>Figure 7.</b> Regret is the reward the best single model would have earned on the same prompts minus the reward the learner earned, summed over the stream. Rising means falling behind, falling means beating that model. λ = ${lamSel}. The full-information learner ends ${Math.abs(f.regret_mean[f.regret_mean.length - 1]).toFixed(0)} reward units ahead of the best fixed model, and greedy ${g.regret_mean[g.regret_mean.length - 1].toFixed(0)} behind.`;
+  let h = "<tr><th>learner</th><th>mean reward</th><th>final regret</th><th>test score</th><th>test cost, share of GPT-4o</th></tr>";
+  Object.entries(B.algos).forEach(([k, d]) => { h += `<tr><td>${ALGO[k][0]}</td><td${k === "greedy" ? ' class="best"' : ""}>${d.avg_reward.toFixed(4)}</td><td>${Math.round(d.regret_mean[d.regret_mean.length - 1]).toLocaleString()}</td><td>${d.test_score.toFixed(3)}</td><td>${pct(d.test_cost_frac)}</td></tr>`; });
+  h += `<tr><td>best fixed model</td><td>${B.best_fixed_reward.toFixed(4)}</td><td>0</td><td>·</td><td>·</td></tr>`;
+  $("bandtab").innerHTML = h;
+}
+function banditText() {
+  const L = ["30", "100", "300"].map(l => D.m2.bandit[l + ".0"]);
+  const partial = ["greedy", "egreedy_0.05", "egreedy_0.2", "linucb_0.3", "linucb_1.0", "thompson_0.3"];
+  const greedyBest = L.every(B => partial.every(k => B.algos.greedy.avg_reward >= B.algos[k].avg_reward - 1e-9));
+  const b = L[1], g = b.algos.greedy, f = b.algos.full;
+  $("bandtext").innerHTML = `${greedyBest ? "Greedy earns the most of the six partial-feedback learners at all three prices." : "Greedy is among the best partial-feedback learners."} Every form of deliberate exploration costs more than it teaches. This matches a result of Bastani, Bayati and Khosravi<sup class="r"><a href="#refs">[14]</a></sup>, who showed that when contexts vary enough, a greedy learner explores by accident. Different prompts make different models look best, so every model keeps getting tried.<br><br>Partial feedback is still expensive. Over the whole stream, no partial-feedback learner beats simply using GPT-4o mini, while the full-information learner does. The gap is early. Late in the stream greedy gains on GPT-4o mini at λ = 30 and 100, and its final model routes the test prompts almost as well as the full-information one, ${g.test_score.toFixed(3)} against ${f.test_score.toFixed(3)} at about ${pct(g.test_cost_frac, 0)} of GPT-4o's cost. The router reaches a good policy. Paying for the lessons along the way is what keeps it behind the best fixed model on a stream of this length.`;
+}
+function drawOpe() {
+  const O = D.m2.ope, svg = $("ope"); svg.innerHTML = "";
+  const T = Object.keys(O.targets), M = ["DM", "IPS", "SNIPS", "DR"], col = { DM: "#A3B59B", IPS: "#6F95BA", SNIPS: "#9D93C8", DR: "#1D1E20" };
+  const L = 230, W = 860, R = 20, top = 16, rowH = 15, gap = 18, x0 = -0.17, x1 = 0.17, yAxis = top + T.length * (4 * rowH * 0.8 + gap) + 2;
+  const sx = v => L + (Math.max(x0, Math.min(x1, v)) - x0) / (x1 - x0) * (W - L - R);
+  let y = top;
+  [-0.15, -0.1, -0.05, 0, 0.05, 0.1, 0.15].forEach(v => { mk(svg, "line", { x1: sx(v), x2: sx(v), y1: top - 4, y2: yAxis, stroke: v === 0 ? C.rule : C.stone });
+    txt(svg, sx(v), yAxis + 16, (v > 0 ? "+" : "") + v.toFixed(2), { "text-anchor": "middle" }); });
+  T.forEach(t => {
+    txt(svg, L - 12, y + rowH * 1.7, t, { "text-anchor": "end", fill: C.ink });
+    M.forEach(m => { const e = O.targets[t][m], c = y + rowH / 2;
+      mk(svg, "line", { x1: sx(e.bias - e.sd), x2: sx(e.bias + e.sd), y1: c, y2: c, stroke: col[m], "stroke-width": 2 });
+      mk(svg, "circle", { cx: sx(e.bias), cy: c, r: 3.6, fill: col[m] }); y += rowH * 0.8; });
+    y += gap;
   });
-  const tbB = pts.find(p => p.f64 && /branch/.test(p.name)), tbC = pts.find(p => p.f64 && /compact/.test(p.name));
-  if (tbB && tbC) {
-    mk(svg, "defs", {}).innerHTML = `<marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L8,4L0,8z" fill="${C.lavD}"/></marker>`;
-    mk(svg, "line", { x1: tbB.X, y1: tbB.Y - 5, x2: tbC.X, y2: tbC.Y + 6, stroke: C.lavD, "stroke-width": 1.2, "marker-end": "url(#ah)" });
-  }
-  pts.forEach(p => mk(svg, "circle", { cx: p.X, cy: p.Y, r: 4, fill: p.f64 ? C.lavD : "#FBFAF7", stroke: p.f64 ? C.lavD : C.powderD, "stroke-width": 1.5 }));
-  const lab = { "rhs": [6, 20], "smooth_tb · compact": [-9, -9], "smooth_tb · branch": [9, 4], "smooth": [6, 20] };
-  pts.filter(p => p.f64 && lab[p.name]).forEach(p => txt(svg, p.X + lab[p.name][0], p.Y + lab[p.name][1], p.name,
-    { fill: C.ink, "text-anchor": lab[p.name][0] < 0 ? "end" : "start" }));
-  pts.filter(p => !p.f64 && p.name === "rhs").forEach(p => txt(svg, p.X + 8, p.Y + 4, "rhs · FP32", { fill: C.powderD }));
+  txt(svg, W - R, yAxis + 32, "estimate − truth, reward units", { "text-anchor": "end" });
+  $("opeleg").innerHTML = M.map(m => `<span><i class="sw" style="background:${col[m]}"></i>${m === "DM" ? "direct method" : m === "SNIPS" ? "self-normalised IPS" : m === "DR" ? "doubly robust" : m}</span>`).join("");
+  $("opecap").innerHTML = `<b>Figure 8.</b> Five candidate routers at λ = ${O.lam}, each evaluated from ${O.reps} independent logs of the ${O.n.toLocaleString()} test prompts. A dot is the mean error, a bar one standard deviation. Bars that reach the edge are clipped.`;
+  let h = "<tr><th>new router</th><th>logged</th><th>true value</th><th>DM bias</th><th>IPS sd</th><th>DR bias</th><th>DR sd</th><th>DR coverage</th><th>IPS coverage</th></tr>";
+  T.forEach(t => { const r = O.targets[t]; h += `<tr><td>${t}</td><td>${pct(r.match_rate, 0)}</td><td>${r.truth.toFixed(3)}</td><td>${r.DM.bias >= 0 ? "+" : "−"}${Math.abs(r.DM.bias).toFixed(3)}</td><td>${r.IPS.sd.toFixed(3)}</td><td>${r.DR.bias >= 0 ? "+" : "−"}${Math.abs(r.DR.bias).toFixed(3)}</td><td>${r.DR.sd.toFixed(3)}</td><td${r.DR.coverage95 < 0.9 ? ' class="neg"' : ""}>${pct(r.DR.coverage95, 0)}</td><td${r.IPS.coverage95 < 0.9 ? ' class="neg"' : ""}>${pct(r.IPS.coverage95, 0)}</td></tr>`; });
+  $("opetab").innerHTML = h;
+  const m1 = O.targets["milestone 1 router"], lg = O.targets["logging router, no exploration"], g4 = O.targets["always GPT-4o"];
+  $("opetext").innerHTML = `Each estimator fails in its own way. The direct method has the smallest spread and is wrong for the router that matters most. For the milestone 1 router it is off by ${Math.abs(m1.DM.bias).toFixed(3)}, because its reward model is not good enough, and no amount of logging fixes that. IPS is unbiased, as Proposition 4 promises, but noisy. For the same router its standard deviation is ${m1.IPS.sd.toFixed(3)}. The doubly robust estimate keeps the lack of bias and cuts the spread to ${m1.DR.sd.toFixed(3)}, with the self-normalised version close behind.<br><br>That is still not sharp enough for the decision a team faces. The milestone 1 router is truly better than the logging router by ${(m1.truth - lg.truth).toFixed(3)}, less than the doubly robust estimate's own standard deviation. With 6,637 logged requests and 20% exploration the logs cannot reliably say which router to ship. The intervals also overstate their confidence for a router the logs rarely agree with. Always using GPT-4o matches the logged choice only ${pct(g4.match_rate, 1)} of the time, the weights \\(1/p\\) reach 65, and the nominal 95% intervals cover the truth in only ${pct(g4.DR.coverage95, 0)} (doubly robust) and ${pct(g4.IPS.coverage95, 0)} (IPS) of replays.`;
+  $("lessons2").innerHTML = `Milestone 2 adds two more. A router learning from its own traffic does not need deliberate exploration here. Greedy learning did best, because varied requests explore for it, but the early lessons are paid for in real money. And a log can rank a new router before it ships only if it holds enough exploration, and enough requests, to resolve differences of a point or two. That is worth knowing before the logging is designed, not after.`;
+  if (window.renderMathInElement) ["opetext", "bandtext"].forEach(id => renderMathInElement($(id), { delimiters: [{ left: "\\(", right: "\\)", display: false }] }));
 }
-function drawTbcTable() {
-  const t = D.tb_compact, ns = [512, 1024, 2048];
-  let h = "<tr><th>precision</th>" + ns.map(n => `<th>N = ${n}</th>`).join("") + "</tr>";
-  [["FP64", "f64"], ["mixed", "mixed"]].forEach(([name, p]) => {
-    h += `<tr><td>${name}</td>` + ns.map(n => { const r = t[`${p}_${n}`];
-      return `<td class="${p === "f64" ? "best" : ""}">${r.branch.toFixed(2)} → ${r.compact.toFixed(2)} · ${r.speedup.toFixed(2)}×</td>`; }).join("") + "</tr>";
-  });
-  $("tbctab").innerHTML = h;
-}
-function drawRoofTable() {
-  let h = "<tr><th>kernel</th><th>prec</th><th>µs</th><th>GB/s</th><th>DRAM %</th><th>GFLOP/s</th><th>FP64 pipe %</th><th>FP64 lanes</th></tr>";
-  D.roofline.kernels.filter(k => k.grid > 1).forEach(k => {
-    const f64 = k.prec === "f64", hot = f64 && (k.fp64_pipe_pct_elapsed > 60);
-    h += `<tr><td>${kname(k.kernel)}</td><td>${k.prec}</td><td>${k.time_us.toFixed(0)}</td><td>${k.GBps.toFixed(1)}</td><td class="${k.dram_pct > 90 ? "best" : ""}">${k.dram_pct.toFixed(0)}</td>` +
-      `<td>${(f64 ? k.GFLOPs64 : k.GFLOPs32).toFixed(1)}</td><td class="${hot ? "best" : ""}">${f64 ? k.fp64_pipe_pct_elapsed.toFixed(0) : "·"}</td><td>${k.fp64_lanes != null ? k.fp64_lanes.toFixed(1) : "·"}</td></tr>`;
-  });
-  $("rooftab").innerHTML = h;
-}
+document.getElementById("lamseg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; lamSel = b.dataset.l;
+  document.querySelectorAll("#lamseg button").forEach(x => x.classList.toggle("on", x === b)); drawBandit(); });
 
-function drawCav() {
-  const g = D.ghia, cases = D.cavity.filter(c => String(c.Re) === re);
-  const col = { 64: C.faint, 128: C.powderD, 256: C.lavD };
-  // u(y): x axis = u, y axis = y
-  let svg = $("cu"); svg.innerHTML = "";
-  const uRange = re === "100" ? [-0.3, 1] : [-0.45, 1];
-  let a = axes(svg, { W: 420, H: 380, L: 44, R: 10, T: 12, B: 30, x0: uRange[0], x1: uRange[1], y0: 0, y1: 1,
-    xt: re === "100" ? [-0.2, 0, 0.5, 1] : [-0.4, 0, 0.5, 1], yt: [0, 0.25, 0.5, 0.75, 1], xl: "u" });
-  mk(svg, "line", { x1: a.sx(0), x2: a.sx(0), y1: a.sy(0), y2: a.sy(1), stroke: C.stone });
-  cases.forEach(c => { const h = 1 / c.N; const pts = c.u_x05.map((u, j) => [a.sx(u), a.sy((j + 0.5) * h)]);
-    mk(svg, "path", { d: poly(pts), fill: "none", stroke: col[c.N], "stroke-width": c.N === 256 ? 1.8 : 1.2 }); });
-  g["u_centerline_x0.5"].y.forEach((y, i) => mk(svg, "circle", { cx: a.sx(g["u_centerline_x0.5"]["Re" + re][i]), cy: a.sy(y), r: 3.4, fill: "#FBFAF7", stroke: C.ink, "stroke-width": 1.1 }));
-  // v(x)
-  svg = $("cv"); svg.innerHTML = "";
-  const vRange = re === "100" ? [-0.3, 0.25] : [-0.6, 0.45];
-  a = axes(svg, { W: 420, H: 380, L: 44, R: 10, T: 12, B: 30, x0: 0, x1: 1, y0: vRange[0], y1: vRange[1],
-    xt: [0, 0.25, 0.5, 0.75, 1], yt: re === "100" ? [-0.2, -0.1, 0, 0.1, 0.2] : [-0.5, -0.25, 0, 0.25], xl: "x" });
-  mk(svg, "line", { x1: a.sx(0), x2: a.sx(1), y1: a.sy(0), y2: a.sy(0), stroke: C.stone });
-  cases.forEach(c => { const h = 1 / c.N; const pts = c.v_y05.map((v, i) => [a.sx((i + 0.5) * h), a.sy(v)]);
-    mk(svg, "path", { d: poly(pts), fill: "none", stroke: col[c.N], "stroke-width": c.N === 256 ? 1.8 : 1.2 }); });
-  g["v_centerline_y0.5"].x.forEach((x, i) => mk(svg, "circle", { cx: a.sx(x), cy: a.sy(g["v_centerline_y0.5"]["Re" + re][i]), r: 3.4, fill: "#FBFAF7", stroke: C.ink, "stroke-width": 1.1 }));
-  const c256 = cases.find(c => c.N === 256);
-  $("cavcap").innerHTML = `<b>Figure 5.</b> Steady centreline velocities at Re = ${re} on three grids, against Ghia's tabulated points. At N = 256 the largest deviation is ${c256.u_max_abs_dev.toFixed(4)} in u and ${c256.v_max_abs_dev.toFixed(4)} in v, after ${c256.steps.toLocaleString()} time steps to t = ${c256.t.toFixed(1)}.`;
-}
-
-function drawCavTable() {
-  let h = "<tr><th>Re</th><th>N</th><th>steps</th><th>max dev u</th><th>rms dev u</th><th>max dev v</th><th>rms dev v</th><th>ψ min</th></tr>";
-  D.cavity.forEach(c => { h += `<tr><td>${c.Re}</td><td>${c.N}</td><td>${c.steps.toLocaleString()}</td><td>${c.u_max_abs_dev.toFixed(4)}</td><td>${c.u_rms_dev.toFixed(4)}</td><td>${c.v_max_abs_dev.toFixed(4)}</td><td>${c.v_rms_dev.toFixed(4)}</td><td>${c.psi_min.toFixed(5)}</td></tr>`; });
-  $("cavtab").innerHTML = h;
-}
-
-function drawTbTable() {
-  const t = D.throughput, idx = [2, 3, 4];
-  const rows = [["FP64", "f64"], ["FP64 + blocked smoother", "f64 + blocked smoother"], ["mixed", "mixed"], ["mixed + blocked smoother", "mixed + blocked smoother"]];
-  let h = "<tr><th>configuration</th>" + idx.map(i => `<th>N = ${t.N[i]}</th>`).join("") + "</tr>";
-  rows.forEach(([name, k], r) => { h += `<tr><td>${name}</td>` + idx.map(i => `<td class="${r === 3 ? "best" : ""}">${t[k][i].toFixed(2)}</td>`).join("") + "</tr>"; });
-  $("tbtab").innerHTML = h;
-}
-
-document.getElementById("absw").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; abN = b.dataset.n;
-  document.querySelectorAll("#absw button").forEach(x => x.classList.toggle("on", x === b)); drawAbl(); });
-document.getElementById("resw").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; re = b.dataset.re;
-  document.querySelectorAll("#resw button").forEach(x => x.classList.toggle("on", x === b)); drawCav(); });
-
-fetch("../data/inv02.json").then(r => r.json()).then(d => {
-  D = d;
-  $("bw").textContent = d.bandwidth.copy_GBps_median.toFixed(1) + " GB/s";
-  $("ver64").textContent = d.verification.f64.toExponential(1).replace("e-", " × 10⁻").replace(/⁻(\d+)/, (m, p) => "⁻" + sup(p));
-  $("ord64").textContent = d.convergence.f64.order_linf.map(v => v.toFixed(3)).join(", ");
-  drawConv(); drawRes(); drawAbl(); drawThr(); drawCav(); drawCavTable(); drawTbTable();
-  const c = d.roofline.ceilings;
-  $("rf-clk").textContent = c.sm_clock_GHz.toFixed(3); $("rf-cyc").textContent = c.fp64_cycles_per_warp_inst.toFixed(1);
-  $("rf-bw").textContent = c.dram_GBps_spec.toFixed(1); $("rf-bwn").textContent = c.dram_GBps_ncu.toFixed(1);
-  drawRoof(); drawRoofTable(); drawTbcTable();
-  const st = d.tb_step; $("st-f64").textContent = st.f64_2048.speedup.toFixed(2) + "×"; $("st-mx").textContent = st.mixed_2048.speedup.toFixed(2) + "×";
-  $("thr-a").textContent = d.throughput["f64 (milestone 1)"][4].toFixed(0); $("thr-b").textContent = d.throughput["mixed + blocked smoother"][4].toFixed(0);
+fetch("../data/inv02.json", { cache: "no-cache" }).then(r => r.json()).then(d => {
+  D = d; setupColors();
+  drawMods(); drawHeat(); drawInv(); drawFront(); drawTables(); drawLofo(); drawLuck(); drawCert(); if (D.m2) { drawBandit(); banditText(); drawOpe(); }
+  updateShares(); $("lam").addEventListener("input", updateShares);
+  if (window.renderMathInElement) renderMathInElement($("rtext"), { delimiters: [{ left: "\\(", right: "\\)", display: false }] });
 });
 
 document.addEventListener("DOMContentLoaded", () => {

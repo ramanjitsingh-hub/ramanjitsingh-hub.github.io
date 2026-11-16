@@ -1,4 +1,4 @@
-"""Investigation 02, milestone 1. Runs every experiment and writes results/summary.json.
+"""Systems study S1, milestone 1. Runs every experiment and writes results/summary.json.
 
     ./build.sh && python run_experiments.py
 """

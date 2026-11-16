@@ -1,4 +1,4 @@
-"""Copy the numbers the website renders from results/ into site/data/inv03.json. Never edited by hand.
+"""Copy the numbers the website renders from results/ into site/data/s2.json. Never edited by hand.
 
     python export_site_data.py
 """
@@ -17,5 +17,5 @@ m2 = json.loads((R / "milestone2.json").read_text()) if (R / "milestone2.json").
 # configurations measured, counted from the raw result files (counters runs excluded)
 out["n_configs"] = sum(len(v) for k, v in m.items() if isinstance(v, list)) + sum(len(v) for k, v in m2.items() if isinstance(v, list))
 SITE.mkdir(parents=True, exist_ok=True)
-(SITE / "inv03.json").write_text(json.dumps(out, separators=(",", ":")))
-print("wrote", SITE / "inv03.json", round((SITE / "inv03.json").stat().st_size / 1024, 1), "KB")
+(SITE / "s2.json").write_text(json.dumps(out, separators=(",", ":")))
+print("wrote", SITE / "s2.json", round((SITE / "s2.json").stat().st_size / 1024, 1), "KB")

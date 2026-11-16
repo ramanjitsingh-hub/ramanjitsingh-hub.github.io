@@ -1,4 +1,4 @@
-"""Investigation 04, milestone 2: routing under partial feedback.
+"""Investigation 02, milestone 2: routing under partial feedback.
 
 A deployed router sees only the score and cost of the model it chose. SPROUT
 records every model's answer, so both questions below can be checked against

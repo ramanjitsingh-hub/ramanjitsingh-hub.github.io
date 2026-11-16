@@ -1,4 +1,4 @@
-# Theory for Investigation 04
+# Theory for Investigation 02
 
 ## Setup
 A prompt X is drawn from a distribution D. There are K models. Model k returns an answer with score Y_k in [0, 1] and cost c_k >= 0 (USD, from token counts and list prices). Write mu_k(x) = E[Y_k | X = x] and kappa_k(x) = E[c_k | X = x]. A router maps a prompt to a distribution pi(x) over models, so randomised routers are allowed. Its value is V(pi) = E[sum_k pi_k(X) Y_k] and its cost Q(pi) = E[sum_k pi_k(X) c_k].

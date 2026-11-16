@@ -1,4 +1,4 @@
-"""Investigation 04, milestone 1. Every number on the page comes from here.
+"""Investigation 02, milestone 1. Every number on the page comes from here.
 
 Reads data/raw/sprout.npz and data/raw/preds.npz (from prepare.py and
 fit_routers.py) and writes results/milestone1.json.

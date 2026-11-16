@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A GPU Navier–Stokes Solver</title>
+<meta name="description" content="Systems study S1. A from-scratch incompressible Navier–Stokes solver on a 4 GB laptop GPU: verification, multigrid, mixed precision, latency removal, a shared-memory smoother and the lid-driven cavity.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/page.css">
+<style>
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.pair .sub{font-family:var(--mono);font-size:11px;color:var(--graphite);margin-bottom:4px}
+@media (max-width:980px){.pair{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav id="nav"><div class="wrap grid">
+  <a class="who" href="../">Ramanjit Singh</a>
+  <div class="links"><a href="../#research">Investigations</a><a href="../01/">01</a><a href="../02/">02</a><a href="../#systems">Systems</a><a href="../#about">About</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="../assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
+  <span class="rev mono">systems S1</span>
+</div></nav>
+
+<header class="top"><div class="wrap grid">
+  <div class="kicker mono"><span class="tick"></span>Systems S1 · GPU Navier–Stokes</div>
+  <h1>A Navier–Stokes solver on a 4 GB laptop GPU</h1>
+  <p class="abstract">A from-scratch CUDA solver for two-dimensional incompressible flow. It is verified to machine precision against independent code, exactly second order in space, and validated on the lid-driven cavity. Then it is made 13.5× faster on small grids and about 2.5× on large ones by removing launch latency, moving the multigrid to mixed precision, and blocking the smoother in shared memory, and hardware counters show where the remaining time goes. The answer stays the same throughout, and at times identical to the last bit.</p>
+  <div class="side">
+    <div class="status mono"><i></i>in progress · milestones 1 to 4 complete</div>
+    <div class="datanote"><b>Hardware.</b> NVIDIA RTX 3050 Laptop, 4 GB, sm_86, 20 SMs, 64-bit memory bus. Measured device copy bandwidth <b id="bw">·</b>. FP64 runs at 1/64 of FP32 on this card.</div>
+    <dl class="meta">
+      <dt>language</dt><dd>CUDA C++17, Python</dd>
+      <dt>toolchain</dt><dd>CUDA 13.5 · MSVC 2022</dd>
+      <dt>grids</dt><dd>32² to 2048²</dd>
+      <dt>reference</dt><dd>NumPy/FFT, Ghia et al. 1982</dd>
+      <dt>code</dt><dd><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io/tree/main/investigations/s1-gpu-navier-stokes">investigations/s1-gpu-navier-stokes</a></dd>
+    </dl>
+  </div>
+</div></header>
+
+<main><div class="wrap grid">
+  <aside class="toc"><ol id="toc">
+    <li><a href="#s1"><span>1</span>The scheme</a></li>
+    <li><a href="#s2"><span>2</span>Verification and convergence</a></li>
+    <li><a href="#s3"><span>3</span>Multigrid and the FP32 floor</a></li>
+    <li><a href="#s4"><span>4</span>Where the time went</a></li>
+    <li><a href="#s5"><span>5</span>Mixed-precision multigrid</a></li>
+    <li><a href="#s6"><span>6</span>Walls: the lid-driven cavity</a></li>
+    <li><a href="#s7"><span>7</span>A race in the fast smoother</a></li>
+    <li><a href="#s8"><span>8</span>What the hardware counters say</a></li>
+    <li><a href="#s9"><span>9</span>Running in your browser</a></li>
+    <li><a href="#s10"><span>10</span>Limitations and next steps</a></li>
+    <li><a href="#s11"><span>11</span>Reproduce</a></li>
+    <li><a href="#refs"><span>·</span>References</a></li>
+  </ol></aside>
+
+  <article>
+
+  <section id="s1">
+    <h2><span class="n">§1</span>The scheme</h2>
+    <p class="lead">The equations are the incompressible Navier–Stokes equations in two dimensions,</p>
+    <div class="eq">$$\partial_t \mathbf u + \nabla\!\cdot(\mathbf u \otimes \mathbf u) = -\nabla p + \nu \nabla^2 \mathbf u, \qquad \nabla\!\cdot\mathbf u = 0 .$$</div>
+    <p>Velocities live on a staggered (MAC) grid<sup class="r"><a href="#refs">[1]</a></sup>, with \(u_{i,j}\) on vertical faces, \(v_{i,j}\) on horizontal faces and the pressure at cell centres. On this grid the discrete divergence of a discrete gradient is exactly the 5-point Laplacian, so the projection has no spurious pressure modes. Advection uses the conservative form with central interpolation, second order in space.</p>
+    <p>Time integration is the three-stage strong-stability-preserving Runge–Kutta scheme of Shu and Osher<sup class="r"><a href="#refs">[3]</a></sup>, with a projection after every stage<sup class="r"><a href="#refs">[2]</a></sup>,</p>
+    <div class="eq">$$\mathbf u^{(1)} = \mathcal P\big[\mathbf u^n + \Delta t\, L(\mathbf u^n)\big],\quad \mathbf u^{(2)} = \mathcal P\big[\tfrac34\mathbf u^n + \tfrac14(\mathbf u^{(1)} + \Delta t\, L(\mathbf u^{(1)}))\big],\quad \mathbf u^{n+1} = \mathcal P\big[\tfrac13\mathbf u^n + \tfrac23(\mathbf u^{(2)} + \Delta t\, L(\mathbf u^{(2)}))\big],$$</div>
+    <p>where \(\mathcal P[\mathbf u^*] = \mathbf u^* - \nabla\phi\) with \(\nabla^2\phi = \nabla\!\cdot\mathbf u^*\). The Poisson equation is solved by geometric multigrid V(2,2) cycles: red-black Gauss–Seidel smoothing, full-weighting restriction, bilinear prolongation, down to a 4 × 4 grid<sup class="r"><a href="#refs">[4]</a></sup>. The same templated source compiles to FP64 and FP32.</p>
+  </section>
+
+  <section id="s2">
+    <h2><span class="n">§2</span>Verification and convergence</h2>
+    <p>Before measuring anything, the GPU code was checked against an independent NumPy implementation of the same discretisation that solves the pressure equation exactly with an FFT, using the eigenvalues of the discrete Laplacian. The two share no code. After the full Taylor–Green run at N = 64, the FP64 GPU velocity field agrees with the NumPy field to <b id="ver64">·</b> in the max norm, which is machine precision. That checks the advection stencils, the Runge–Kutta stages and the multigrid solve together.</p>
+    <p>The Taylor–Green vortex<sup class="r"><a href="#refs">[6]</a></sup> has an exact solution on the periodic box,</p>
+    <div class="eq">$$u = \sin x \cos y\, e^{-2\nu t},\qquad v = -\cos x \sin y\, e^{-2\nu t},$$</div>
+    <p>so the error can be measured directly. With \(\Delta t \propto h\) the Runge–Kutta error is \(O(h^3)\) and stays hidden behind the \(O(h^2)\) spatial error.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 1 &nbsp;max error against grid size, Taylor–Green, ν = 0.01, T = 1</span></div>
+      <svg id="conv" viewBox="0 0 860 300" role="img" aria-label="Grid convergence in FP64 and FP32"></svg>
+      <div class="legend mono"><span><i class="sw" style="background:var(--lavender-deep)"></i>FP64</span><span><i class="sw dash"></i>FP32</span><span><i class="sw" style="background:var(--sage)"></i>slope −2</span></div>
+    </div>
+    <p class="cap"><b>Figure 1.</b> FP64 errors fall exactly as \(h^2\). The observed order is <span id="ord64">·</span> between successive grids. Divergence stays below 7 × 10⁻¹². FP32 follows until N = 128 and then gets <i>worse</i> as the grid is refined. §3 explains why.</p></div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="n">§3</span>Multigrid and the FP32 floor</h2>
+    <p>In FP64 each V(2,2) cycle reduces the residual by a factor of 0.053 to 0.059, the same at every grid size from 64 to 2048. That is the grid-independent convergence multigrid theory promises, and the solver reaches a relative residual of 10⁻¹⁴.</p>
+    <p>FP32 cannot follow. The residual \(r = f - L_h p\) subtracts terms of size \(|p|/h^2\), so its rounding error is about \(\varepsilon_{32}\,|p|/h^2\). It grows as the grid is refined, and the relative residual stalls at a floor that rises from 1.3 × 10⁻⁶ at N = 64 to 5.9 × 10⁻⁵ at N = 2048. With a 10⁻⁵ tolerance the FP32 solver never converges on large grids and runs to its 40-cycle cap, which makes it <b>slower</b> than FP64 (157 against 33 ms per step at N = 128), not faster.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 2 &nbsp;relative residual by V-cycle, random right-hand side, N = 1024</span></div>
+      <svg id="res" viewBox="0 0 860 280" role="img" aria-label="Residual histories in FP64, FP32 and mixed precision"></svg>
+      <div class="legend mono"><span><i class="sw" style="background:var(--lavender-deep)"></i>FP64</span><span><i class="sw dash"></i>FP32</span><span><i class="sw" style="background:var(--sage-deep)"></i>mixed, FP32 cycles with FP64 residuals</span></div>
+    </div>
+    <p class="cap"><b>Figure 2.</b> FP64 and mixed precision overlap cycle for cycle down to about 4.6 × 10⁻¹⁴. FP32 stalls at 2.5 × 10⁻⁵ after four cycles.</p></div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="n">§4</span>Where the time went</h2>
+    <p>The first timing run gave a clear picture. In FP64 the pressure projection took 96 to 99% of every step, and a V-cycle cost 1.3 to 2.2 ms whether the grid had 64² or 512² cells. A cost that does not grow with the problem is not arithmetic. Each cycle launched hundreds of tiny kernels, 120 for the 4 × 4 coarse solve alone, and every convergence check copied a reduction back to the host and waited for it.</p>
+    <p>Meanwhile the FP32 advection kernel already ran at 98.9 GB/s, 95% of the measured copy bandwidth, so the stencil code itself was fine. The FP64 version stalled near 42 GB/s. By my hand count of about 55 to 60 operations per cell that is roughly 75 GFLOP/s, the same order as this card's FP64 peak. The hardware counters in §8 later confirmed that the kernel is compute bound, but measured 51 GFLOP/s, because my count was too high.</p>
+    <p>Each fix below is a command-line switch, so it can be measured on its own. They are added in order.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 3 &nbsp;ms per time step as each change is added, FP64, median of 5</span>
+        <span class="seg" id="absw"><button data-n="128" class="on">N = 128</button><button data-n="512">N = 512</button><button data-n="2048">N = 2048</button></span></div>
+      <svg id="abl" viewBox="0 0 860 300" role="img" aria-label="Ablation of latency optimisations"></svg>
+    </div>
+    <p class="cap"><b>Figure 3.</b> Bars show the median and whiskers the min to max of 5 repeats. The right-hand numbers are host synchronisations per step. The single-launch coarse solve and CUDA Graph capture remove most of the cost on small grids. On large grids the solver is bandwidth bound and the gains come from moving fewer bytes, first by mixed precision and then, in §7, by the blocked smoother.</p></div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="n">§5</span>Mixed-precision multigrid</h2>
+    <p>The FP32 floor in §3 comes from computing the residual in low precision, not from smoothing in it. So the iterate and its residual are kept in FP64, and only the correction is computed in FP32, one V-cycle per outer iteration,</p>
+    <div class="eq">$$r_k = f - L_h p_k \;\;(\text{FP64}),\qquad L_h e_k \approx r_k \;\;(\text{one FP32 V-cycle}),\qquad p_{k+1} = p_k + e_k \;\;(\text{FP64}).$$</div>
+    <p>This is iterative refinement in the sense of Higham and Mary<sup class="r"><a href="#refs">[7]</a></sup>. One V-cycle only needs to reduce the error by about 0.06, which FP32 does comfortably, so the outer iteration inherits the FP64 contraction rate (Figure 2). On Taylor–Green the mixed solver reproduces every FP64 error digit at every grid size from 32 to 1024, and runs 1.38 to 1.44× faster because the smoother moves half the bytes.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 4 &nbsp;ms per time step against grid size</span></div>
+      <svg id="thr" viewBox="0 0 860 300" role="img" aria-label="Throughput by configuration"></svg>
+      <div class="legend mono" id="thrleg"></div>
+    </div>
+    <p class="cap"><b>Figure 4.</b> Each line is the median of 5 repeats. The final configuration is mixed precision plus the blocked smoother. At N = 2048 a step drops from <span id="thr-a">·</span> ms in the first timing run to <span id="thr-b">·</span> ms. The blocked-smoother runs use the colour-compacted kernel from §8.</p></div>
+  </section>
+
+  <section id="s6">
+    <h2><span class="n">§6</span>Walls: the lid-driven cavity</h2>
+    <p>The periodic box has no boundaries, so it cannot test the hardest part of most real flows. The cavity solver adds walls to the same scheme. Tangential no-slip is imposed through ghost values, \(u_{\text{ghost}} = 2U_{\text{wall}} - u_{\text{inside}}\), the lid moves at \(U = 1\), and the multigrid stencil drops neighbours outside the domain, which imposes the homogeneous Neumann condition the pressure correction needs. Each case runs until \(\max|\partial_t u| < 10^{-7}\).</p>
+    <p>The comparison is against the tables of Ghia, Ghia and Shin<sup class="r"><a href="#refs">[5]</a></sup>. The publisher's copy could not be fetched automatically, so the values were taken from three independent reproductions and cross-checked value by value. The Re = 100 and Re = 1000 columns agree in every source.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 5 &nbsp;centreline velocities at steady state</span>
+        <span class="seg" id="resw"><button data-re="100" class="on">Re = 100</button><button data-re="1000">Re = 1000</button></span></div>
+      <div class="pair">
+        <div><div class="sub">u(0.5, y)</div><svg id="cu" viewBox="0 0 420 380" role="img" aria-label="Horizontal velocity on the vertical centreline"></svg></div>
+        <div><div class="sub">v(x, 0.5)</div><svg id="cv" viewBox="0 0 420 380" role="img" aria-label="Vertical velocity on the horizontal centreline"></svg></div>
+      </div>
+      <div class="legend mono"><span><i class="sw" style="background:var(--faint)"></i>N = 64</span><span><i class="sw" style="background:var(--powder-d,#6F95BA)"></i>N = 128</span><span><i class="sw" style="background:var(--lavender-deep)"></i>N = 256</span><span>○ Ghia et al. 1982, 129 × 129</span></div>
+    </div>
+    <p class="cap" id="cavcap"><b>Figure 5.</b> ·</p></div>
+
+    <table class="res" id="cavtab"></table>
+    <p class="cap" style="margin-bottom:22px"><b>Table 1.</b> Deviation from Ghia at the 17 tabulated centreline points, excluding imposed wall values, and the streamfunction minimum of the primary vortex.</p>
+
+    <h3>How to read the comparison</h3>
+    <p>The solver converges on itself at second order. Between successive grids the centreline profiles change by 1.1 × 10⁻³ and then 2.6 × 10⁻⁴ at Re = 100 (observed order 2.11), and by 2.3 × 10⁻² and then 6.2 × 10⁻³ at Re = 1000 (order 1.88). At Re = 100 the remaining difference from Ghia, about 0.005 in u and 0.009 in v, does not shrink with refinement, so it is larger than this solver's own discretisation error. Ghia's values come from a 129 × 129 grid and carry discretisation error of their own, so this comparison cannot assign the residual difference to either side. Settling it needs a higher-accuracy reference. That is listed below as open work, not claimed.</p>
+  </section>
+
+  <section id="s7">
+    <h2><span class="n">§7</span>A race in the fast smoother</h2>
+    <p>On large grids every smoothing sweep reads and writes the whole fine grid, and red-black ordering doubles that. The blocked smoother loads a 32 × 32 tile with a 4-cell halo into shared memory and performs all four half-sweeps of a smoothing call there. The valid region shrinks by one cell per half-sweep, which is why the halo is four cells wide. The fine grid is then touched once per call instead of four times.</p>
+    <p>The first version wrote the tile back in place, and it was wrong. Its results differed from the unblocked smoother only at N = 2048, in the second significant digit of the residual history.</p>
+<pre><span class="c">// block A                                   block B (neighbour, scheduled later)</span>
+load tile + halo from p      <span class="c">// old values</span>
+4 half-sweeps in shared memory
+write interior back to p     <span class="c">// p now partly new</span>
+                                             load tile + halo from p   <span class="c">// halo already updated by A</span></pre>
+    <p>A block's halo belongs to its neighbours' interiors. When all blocks fit on the GPU at once, as they do on small grids, every block finishes loading before any block writes, and the bug cannot show. At N = 2048 the 4,096 blocks run in waves, so later blocks read values that are already one smoothing call ahead. The fix writes to a second buffer and swaps the pointers. Each level is smoothed exactly twice per V-cycle, so the pointers return to their original buffers after every cycle and the captured CUDA Graph stays valid. After the fix, the full Taylor–Green solution is <b>bitwise identical</b> to the unblocked solver at N = 512 in FP64 and at N = 1024 in mixed precision.</p>
+    <table class="res" id="tbtab"></table>
+    <p class="cap" style="margin-bottom:22px"><b>Table 2.</b> ms per time step, median of 5. The blocked smoother is applied only to levels with N ≥ 512.</p>
+    <p>Below N = 512 whole time steps got slower with the blocked smoother (5.39 → 7.14 ms at N = 256). The counters in §8 explain it. At N = 256 the blocked kernel launches only 64 blocks, about one wave on this GPU's 20 SMs, and on the next level down 16 blocks fill a quarter of a wave. Each block also recomputes its halo, which is a large share of a small tile. The switch therefore stays off below N = 512.</p>
+  </section>
+
+  <section id="s8">
+    <h2><span class="n">§8</span>What the hardware counters say</h2>
+    <p>Timings say how long a kernel takes, not why. Nsight Compute reads the GPU's own counters for every kernel, including the bytes moved to and from memory, floating-point instructions by type, and how busy each execution pipe was. Placing each kernel on a roofline<sup class="r"><a href="#refs">[9]</a></sup> shows which limit it is pressing against. Every kernel below is profiled on its finest level at N = 1024.</p>
+    <p>The ceilings are measured rather than copied from a datasheet. The profiler locks the SM clock at <span class="mono" id="rf-clk">·</span> GHz. On the busiest FP64 kernel the FP64 pipe was active for exactly <span class="mono" id="rf-cyc">·</span> cycles per warp instruction, so each of the 20 SMs retires two FP64 lanes per cycle. That gives</p>
+    <div class="eq">$$P_{64} = 20 \times 2 \times f_{\text{SM}} = 48.3\ \text{G instr/s},\qquad 96.6\ \text{GFLOP/s if every instruction is an FMA}.$$</div>
+    <p>Memory bandwidth from the memory clock and bus width is <span class="mono" id="rf-bw">·</span> GB/s. The profiler's own percentages imply <span class="mono" id="rf-bwn">·</span> GB/s, which agrees.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 6 &nbsp;roofline, every kernel at N = 1024</span></div>
+      <svg id="roof" viewBox="0 0 860 400" role="img" aria-label="Roofline plot of every solver kernel"></svg>
+      <div class="legend mono"><span><i class="sw" style="background:var(--lavender-deep)"></i>FP64 kernel</span><span>○ FP32 kernel</span><span>→ blocked smoother, before and after the fix below</span></div>
+    </div>
+    <p class="cap"><b>Figure 6.</b> Each point is one kernel. A point on the sloped line is limited by memory bandwidth, and a point under a flat line by arithmetic. The FP32 peak is computed from the lane count and lies far to the right, so every FP32 kernel is memory bound by a wide margin.</p></div>
+    <h3>Three readings</h3>
+    <p><b>Almost everything is memory bound and already near the limit.</b> Every streaming kernel, in both precisions, moves data at 91 to 95% of peak bandwidth. Speed for these kernels can only come from moving fewer bytes, which is what mixed precision and the blocked smoother do.</p>
+    <p><b>The FP64 right-hand side is compute bound.</b> At 1.6 FLOP per byte it sits right of the FP64 ridge, reaching 51 GFLOP/s with the FP64 pipe busy 84% of the time. Only 24% of its FP64 instructions are fused multiply-adds, so its practical ceiling is about 60 GFLOP/s, not 96.6. This settles the estimate in §4.</p>
+    <p><b>The blocked smoother was wasting half its arithmetic.</b> Its FP64 pipe was 82% busy, yet it delivered only 20 GFLOP/s. The cause was divergence. The red-black update skipped cells of the other colour with a branch, so on each FP64 instruction only 13.8 of a warp's 32 lanes did work while the pipe stayed busy issuing them. The fix assigns each thread a cell of the current colour directly. The arithmetic and the update order are unchanged, so the solution stays <b>bitwise identical</b>, checked byte for byte at N = 512 in FP64 and N = 1024 in mixed precision.</p>
+    <table class="res" id="tbctab"></table>
+    <p class="cap" style="margin-bottom:22px"><b>Table 3.</b> ms per V-cycle with the branch and with colour-compacted thread mapping, median of 5 interleaved repeats. The kernel alone runs 2.1× faster in FP64. An isolated mixed-precision V-cycle gains about 1%, because its smoother runs in FP32 and was already close to the memory limit. A full time step at N = 2048, three interleaved repeats, runs <span id="st-f64">·</span> faster in FP64 and <span id="st-mx">·</span> faster in mixed precision. Why the full mixed step gains more than its V-cycle is not yet established.</p>
+    <table class="res" id="rooftab"></table>
+    <p class="cap" style="margin-bottom:22px"><b>Table 4.</b> Hardware counters per kernel on the finest level at N = 1024, with the clock locked by the profiler. FP64 lanes counts the active lanes per FP64 warp instruction, so 32 means no divergence. The coarse solve runs as a single block and is left out.</p>
+  </section>
+
+  <section id="s9">
+    <h2><span class="n">§9</span>Running in your browser</h2>
+    <p>The flow behind the <a href="../">homepage</a> headline is this solver, ported to WebGPU compute shaders: the same MAC grid, conservative advection and multigrid V(2,2), with a single-workgroup coarse solve, on a 256 × 128 periodic grid in 190 dispatches per frame. It differs from the CUDA code in ways the homepage states: FP32, Heun's method instead of SSP-RK3, a fixed two V-cycles per projection warm-started from the previous pressure, linear drag, and a passive dye advected semi-Lagrangian for display. The divergence of the displayed field is read back asynchronously and printed live. On the development laptop it holds 60 fps, the display limit, with \(\max|\nabla\!\cdot\mathbf u| \approx 3\times10^{-4}\). Browsers without WebGPU fall back to a simpler CPU solver<sup class="r"><a href="#refs">[8]</a></sup>.</p>
+  </section>
+
+  <section id="s10">
+    <h2><span class="n">§10</span>Limitations and next steps</h2>
+    <p>All timings come from one laptop GPU whose clocks vary with temperature. Medians of five repeats are reported, and the spread is under 4% in the ablation, but other hardware will differ. The profiler locks the clock at its base value, so rates in §8 are lower than the timings elsewhere on this page. The ratios between kernels are what the analysis relies on. The cavity comparison needs a higher-accuracy reference to decide the residual difference from Ghia. The divergence found in §8 leads into <a href="../s2/">systems study S2</a>, the anatomy of GPU computation, which studies effects like it in isolation.</p>
+  </section>
+
+  <section id="s11">
+    <h2><span class="n">§11</span>Reproduce</h2>
+<pre>cd investigations/s1-gpu-navier-stokes
+./build.sh                     <span class="c"># bin/ns2d, bin/cavity  (CUDA 13.5, sm_86)</span>
+python run_experiments.py      <span class="c"># milestone 1: verification, convergence, multigrid, timing</span>
+python run_milestone2.py       <span class="c"># latency ablation, mixed precision</span>
+python run_cavity.py           <span class="c"># lid-driven cavity, about 32 minutes</span>
+python run_milestone3_perf.py  <span class="c"># blocked smoother</span>
+python export_site_data.py     <span class="c"># copies the numbers this page renders</span>
+./bin/ns2d bench --N 512 --baseline 1    <span class="c"># the milestone-1 solver, for comparison</span></pre>
+    <p>Every figure on this page renders <code>site/data/s1.json</code>, which is exported from those runs and never edited by hand.</p>
+  </section>
+
+  <section id="refs">
+    <h2><span class="n">·</span>References</h2>
+    <ol class="refs">
+      <li><span><i>F. H. Harlow, J. E. Welch.</i> Numerical calculation of time-dependent viscous incompressible flow of fluid with free surface. Physics of Fluids 8(12), 2182–2189, 1965.</span></li>
+      <li><span><i>A. J. Chorin.</i> Numerical solution of the Navier–Stokes equations. Mathematics of Computation 22(104), 745–762, 1968.</span></li>
+      <li><span><i>C.-W. Shu, S. Osher.</i> Efficient implementation of essentially non-oscillatory shock-capturing schemes. Journal of Computational Physics 77(2), 439–471, 1988.</span></li>
+      <li><span><i>W. L. Briggs, V. E. Henson, S. F. McCormick.</i> A Multigrid Tutorial, 2nd ed. SIAM, 2000.</span></li>
+      <li><span><i>U. Ghia, K. N. Ghia, C. T. Shin.</i> High-Re solutions for incompressible flow using the Navier–Stokes equations and a multigrid method. Journal of Computational Physics 48(3), 387–411, 1982.</span></li>
+      <li><span><i>G. I. Taylor, A. E. Green.</i> Mechanism of the production of small eddies from large ones. Proceedings of the Royal Society A 158(895), 499–521, 1937.</span></li>
+      <li><span><i>N. J. Higham, T. Mary.</i> Mixed precision algorithms in numerical linear algebra. Acta Numerica 31, 347–414, 2022.</span></li>
+      <li><span><i>J. Stam.</i> Stable fluids. Proceedings of SIGGRAPH 1999, 121–128.</span></li>
+      <li><span><i>S. Williams, A. Waterman, D. Patterson.</i> Roofline: an insightful visual performance model for multicore architectures. Communications of the ACM 52(4), 65–76, 2009.</span></li>
+    </ol>
+  </section>
+
+  </article>
+</div></main>
+
+<footer><div class="wrap grid mono">
+  <span class="c1">Ramanjit Singh · Phagwara, Punjab</span>
+  <span class="c2"><a href="mailto:hackit830@gmail.com">hackit830@gmail.com</a> · <a href="https://www.linkedin.com/in/ramanjitsingh1">linkedin.com/in/ramanjitsingh1</a> · <a href="https://github.com/ramanjitsingh-hub">github</a></span>
+  <span class="c3">Every figure is computed, none is drawn.</span>
+</div></footer>
+
+<script src="../assets/navmenu.js"></script>
+<script src="../assets/plot.js"></script>
+<script>
+let D = null, abN = "128", re = "100";
+const $ = id => document.getElementById(id);
+
+function drawConv() {
+  const svg = $("conv"); svg.innerHTML = "";
+  const c = D.convergence;
+  const a = axes(svg, { W: 860, H: 300, L: 56, R: 12, T: 20, B: 30, x0: 24, x1: 1400, y0: 3e-8, y1: 2e-4, xlog: true, ylog: true,
+    xt: c.f64.N, yt: [1e-7, 1e-6, 1e-5, 1e-4], yfmt: pow10, xl: "N (cells per side)" });
+  const ref = [[24, 6.26e-5 * (32 / 24) ** 2], [1400, 6.26e-5 * (32 / 1400) ** 2]].map(p => [a.sx(p[0]), a.sy(p[1])]);
+  mk(svg, "path", { d: poly(ref), stroke: C.sage, "stroke-width": 1.4, fill: "none" });
+  const line = (k, sty) => { const pts = c[k].N.map((n, i) => [a.sx(n), a.sy(c[k].linf[i])]);
+    mk(svg, "path", Object.assign({ d: poly(pts), fill: "none", "stroke-width": 1.6 }, sty));
+    pts.forEach(p => mk(svg, "circle", { cx: p[0], cy: p[1], r: 2.6, fill: sty.stroke })); };
+  line("f32", { stroke: C.graphite, "stroke-dasharray": "4 3" });
+  line("f64", { stroke: C.lavD });
+}
+
+function drawRes() {
+  const svg = $("res"); svg.innerHTML = "";
+  const h = D.residual_history_N1024;
+  const a = axes(svg, { W: 860, H: 280, L: 56, R: 12, T: 20, B: 30, x0: 0, x1: 16, y0: 1e-15, y1: 2, ylog: true,
+    xt: [0, 2, 4, 6, 8, 10, 12, 14, 16], yt: [1e-14, 1e-11, 1e-8, 1e-5, 1e-2, 1], yfmt: pow10, xl: "V-cycle" });
+  const line = (k, sty) => mk(svg, "path", Object.assign({ d: poly(h[k].map((y, i) => [a.sx(i), a.sy(y)])), fill: "none", "stroke-width": 1.7 }, sty));
+  line("f32", { stroke: C.graphite, "stroke-dasharray": "4 3" });
+  line("f64", { stroke: C.lavD });
+  line("mixed", { stroke: C.sageD, "stroke-dasharray": "1 3", "stroke-width": 2.4, "stroke-linecap": "round" });
+}
+
+function drawAbl() {
+  const svg = $("abl"); svg.innerHTML = "";
+  const rows = D.ablation[abN], W = 860, L = 250, R = 90, T = 10, rowH = 46, base = rows[0].ms;
+  const xmax = Math.max(...rows.map(r => r.hi)) * 1.18, sx = v => L + v / xmax * (W - L - R);
+  rows.forEach((r, i) => {
+    const y = T + i * rowH;
+    txt(svg, 0, y + 20, r.name, { fill: C.ink, "font-family": "Geist", "font-size": 13 });
+    mk(svg, "rect", { x: L, y: y + 8, width: sx(r.ms) - L, height: 18, fill: i === rows.length - 1 ? C.lav : C.stone, stroke: i === rows.length - 1 ? C.lavD : C.rule });
+    mk(svg, "line", { x1: sx(r.lo), x2: sx(r.hi), y1: y + 17, y2: y + 17, stroke: C.graphite });
+    txt(svg, sx(r.hi) + 8, y + 21, `${r.ms.toFixed(r.ms < 10 ? 2 : 1)} ms`, { fill: C.ink });
+    txt(svg, W, y + 21, `${r.syncs.toFixed(0)} syncs`, { "text-anchor": "end" });
+    if (i) txt(svg, sx(r.hi) + 8, y + 36, `${(base / r.ms).toFixed(1)}× vs baseline`, { "font-size": 10 });
+  });
+  svg.setAttribute("viewBox", `0 0 ${W} ${T + rows.length * rowH + 6}`);
+}
+
+function drawThr() {
+  const svg = $("thr"); svg.innerHTML = "";
+  const t = D.throughput, N = t.N;
+  const a = axes(svg, { W: 860, H: 300, L: 56, R: 12, T: 20, B: 30, x0: 100, x1: 2600, y0: 1.5, y1: 600, xlog: true, ylog: true,
+    xt: N, yt: [2, 5, 10, 20, 50, 100, 200, 500], yfmt: v => v + " ms", xl: "N (cells per side)" });
+  const series = [["f64 (milestone 1)", { stroke: C.faint, "stroke-dasharray": "2 3" }], ["f64", { stroke: C.graphite, "stroke-dasharray": "4 3" }],
+    ["mixed", { stroke: C.powderD }], ["mixed + blocked smoother", { stroke: C.lavD, "stroke-width": 2 }]];
+  series.forEach(([k, sty]) => { const pts = N.map((n, i) => [a.sx(n), a.sy(t[k][i])]);
+    mk(svg, "path", Object.assign({ d: poly(pts), fill: "none", "stroke-width": 1.5 }, sty));
+    pts.forEach(p => mk(svg, "circle", { cx: p[0], cy: p[1], r: 2.4, fill: sty.stroke })); });
+  $("thrleg").innerHTML = series.map(([k, sty]) => `<span><i class="sw${sty["stroke-dasharray"] ? " dash" : ""}" style="background:${sty.stroke}"></i>${k}</span>`).join("");
+}
+
+const kname = n => n.replace(/^k_/, "").replace(/<.*$/, "") + (/,\s*(0|false)>/.test(n) ? " · branch" : /,\s*(1|true)>/.test(n) ? " · compact" : "");
+function drawRoof() {
+  const svg = $("roof"); svg.innerHTML = "";
+  const R = D.roofline, c = R.ceilings, W = 860, H = 400;
+  const a = axes(svg, { W, H, L: 60, R: 14, T: 26, B: 32, x0: 0.05, x1: 100, y0: 3, y1: 10000, xlog: true, ylog: true,
+    xt: [0.1, 1, 10, 100], yt: [10, 100, 1000, 10000], yfmt: v => v >= 1000 ? v / 1000 + "k" : v,
+    xl: "arithmetic intensity · FLOP per DRAM byte", yl: "GFLOP/s" });
+  const bw = c.dram_GBps_spec, f32 = c.sms * 128 * 2 * c.sm_clock_GHz;     // 128 FP32 lanes per Ampere GA10x SM
+  const roofs = [[f32, C.powderD, "", `FP32 peak ${(f32 / 1000).toFixed(1)} TFLOP/s (from lane count, not measured)`],
+                 [c.fp64_GFLOPs_all_fma, C.lavD, "5 4", `FP64, every instruction an FMA · ${c.fp64_GFLOPs_all_fma}`],
+                 [c.fp64_GFLOPs_no_fma, C.lavD, "", `FP64, no FMAs · ${c.fp64_GFLOPs_no_fma}`]];
+  mk(svg, "path", { d: poly([[a.sx(0.05), a.sy(bw * 0.05)], [a.sx(f32 / bw), a.sy(f32)]]), stroke: C.ink, "stroke-width": 1.3, fill: "none" });
+  txt(svg, a.sx(0.09), a.sy(bw * 0.09) - 10, `DRAM ${bw} GB/s`, { fill: C.ink, transform: `rotate(-${Math.atan2(a.sy(1) - a.sy(10), a.sx(10) - a.sx(1)) * 180 / Math.PI} ${a.sx(0.09)} ${a.sy(bw * 0.09) - 10})` });
+  roofs.forEach(([p, col, dash, lab]) => {
+    mk(svg, "line", { x1: a.sx(p / bw), x2: W - 14, y1: a.sy(p), y2: a.sy(p), stroke: col, "stroke-width": 1.3, "stroke-dasharray": dash });
+    txt(svg, W - 16, a.sy(p) - 6, lab, { "text-anchor": "end", fill: col });
+  });
+  const pts = R.kernels.filter(k => k.grid > 1).map(k => {
+    const f64 = k.prec === "f64", x = f64 ? k.intensity64 : k.intensity32, y = f64 ? k.GFLOPs64 : k.GFLOPs32;
+    return { k, f64, X: a.sx(x), Y: a.sy(y), name: kname(k.kernel) };
+  });
+  const tbB = pts.find(p => p.f64 && /branch/.test(p.name)), tbC = pts.find(p => p.f64 && /compact/.test(p.name));
+  if (tbB && tbC) {
+    mk(svg, "defs", {}).innerHTML = `<marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L8,4L0,8z" fill="${C.lavD}"/></marker>`;
+    mk(svg, "line", { x1: tbB.X, y1: tbB.Y - 5, x2: tbC.X, y2: tbC.Y + 6, stroke: C.lavD, "stroke-width": 1.2, "marker-end": "url(#ah)" });
+  }
+  pts.forEach(p => mk(svg, "circle", { cx: p.X, cy: p.Y, r: 4, fill: p.f64 ? C.lavD : "#FBFAF7", stroke: p.f64 ? C.lavD : C.powderD, "stroke-width": 1.5 }));
+  const lab = { "rhs": [6, 20], "smooth_tb · compact": [-9, -9], "smooth_tb · branch": [9, 4], "smooth": [6, 20] };
+  pts.filter(p => p.f64 && lab[p.name]).forEach(p => txt(svg, p.X + lab[p.name][0], p.Y + lab[p.name][1], p.name,
+    { fill: C.ink, "text-anchor": lab[p.name][0] < 0 ? "end" : "start" }));
+  pts.filter(p => !p.f64 && p.name === "rhs").forEach(p => txt(svg, p.X + 8, p.Y + 4, "rhs · FP32", { fill: C.powderD }));
+}
+function drawTbcTable() {
+  const t = D.tb_compact, ns = [512, 1024, 2048];
+  let h = "<tr><th>precision</th>" + ns.map(n => `<th>N = ${n}</th>`).join("") + "</tr>";
+  [["FP64", "f64"], ["mixed", "mixed"]].forEach(([name, p]) => {
+    h += `<tr><td>${name}</td>` + ns.map(n => { const r = t[`${p}_${n}`];
+      return `<td class="${p === "f64" ? "best" : ""}">${r.branch.toFixed(2)} → ${r.compact.toFixed(2)} · ${r.speedup.toFixed(2)}×</td>`; }).join("") + "</tr>";
+  });
+  $("tbctab").innerHTML = h;
+}
+function drawRoofTable() {
+  let h = "<tr><th>kernel</th><th>prec</th><th>µs</th><th>GB/s</th><th>DRAM %</th><th>GFLOP/s</th><th>FP64 pipe %</th><th>FP64 lanes</th></tr>";
+  D.roofline.kernels.filter(k => k.grid > 1).forEach(k => {
+    const f64 = k.prec === "f64", hot = f64 && (k.fp64_pipe_pct_elapsed > 60);
+    h += `<tr><td>${kname(k.kernel)}</td><td>${k.prec}</td><td>${k.time_us.toFixed(0)}</td><td>${k.GBps.toFixed(1)}</td><td class="${k.dram_pct > 90 ? "best" : ""}">${k.dram_pct.toFixed(0)}</td>` +
+      `<td>${(f64 ? k.GFLOPs64 : k.GFLOPs32).toFixed(1)}</td><td class="${hot ? "best" : ""}">${f64 ? k.fp64_pipe_pct_elapsed.toFixed(0) : "·"}</td><td>${k.fp64_lanes != null ? k.fp64_lanes.toFixed(1) : "·"}</td></tr>`;
+  });
+  $("rooftab").innerHTML = h;
+}
+
+function drawCav() {
+  const g = D.ghia, cases = D.cavity.filter(c => String(c.Re) === re);
+  const col = { 64: C.faint, 128: C.powderD, 256: C.lavD };
+  // u(y): x axis = u, y axis = y
+  let svg = $("cu"); svg.innerHTML = "";
+  const uRange = re === "100" ? [-0.3, 1] : [-0.45, 1];
+  let a = axes(svg, { W: 420, H: 380, L: 44, R: 10, T: 12, B: 30, x0: uRange[0], x1: uRange[1], y0: 0, y1: 1,
+    xt: re === "100" ? [-0.2, 0, 0.5, 1] : [-0.4, 0, 0.5, 1], yt: [0, 0.25, 0.5, 0.75, 1], xl: "u" });
+  mk(svg, "line", { x1: a.sx(0), x2: a.sx(0), y1: a.sy(0), y2: a.sy(1), stroke: C.stone });
+  cases.forEach(c => { const h = 1 / c.N; const pts = c.u_x05.map((u, j) => [a.sx(u), a.sy((j + 0.5) * h)]);
+    mk(svg, "path", { d: poly(pts), fill: "none", stroke: col[c.N], "stroke-width": c.N === 256 ? 1.8 : 1.2 }); });
+  g["u_centerline_x0.5"].y.forEach((y, i) => mk(svg, "circle", { cx: a.sx(g["u_centerline_x0.5"]["Re" + re][i]), cy: a.sy(y), r: 3.4, fill: "#FBFAF7", stroke: C.ink, "stroke-width": 1.1 }));
+  // v(x)
+  svg = $("cv"); svg.innerHTML = "";
+  const vRange = re === "100" ? [-0.3, 0.25] : [-0.6, 0.45];
+  a = axes(svg, { W: 420, H: 380, L: 44, R: 10, T: 12, B: 30, x0: 0, x1: 1, y0: vRange[0], y1: vRange[1],
+    xt: [0, 0.25, 0.5, 0.75, 1], yt: re === "100" ? [-0.2, -0.1, 0, 0.1, 0.2] : [-0.5, -0.25, 0, 0.25], xl: "x" });
+  mk(svg, "line", { x1: a.sx(0), x2: a.sx(1), y1: a.sy(0), y2: a.sy(0), stroke: C.stone });
+  cases.forEach(c => { const h = 1 / c.N; const pts = c.v_y05.map((v, i) => [a.sx((i + 0.5) * h), a.sy(v)]);
+    mk(svg, "path", { d: poly(pts), fill: "none", stroke: col[c.N], "stroke-width": c.N === 256 ? 1.8 : 1.2 }); });
+  g["v_centerline_y0.5"].x.forEach((x, i) => mk(svg, "circle", { cx: a.sx(x), cy: a.sy(g["v_centerline_y0.5"]["Re" + re][i]), r: 3.4, fill: "#FBFAF7", stroke: C.ink, "stroke-width": 1.1 }));
+  const c256 = cases.find(c => c.N === 256);
+  $("cavcap").innerHTML = `<b>Figure 5.</b> Steady centreline velocities at Re = ${re} on three grids, against Ghia's tabulated points. At N = 256 the largest deviation is ${c256.u_max_abs_dev.toFixed(4)} in u and ${c256.v_max_abs_dev.toFixed(4)} in v, after ${c256.steps.toLocaleString()} time steps to t = ${c256.t.toFixed(1)}.`;
+}
+
+function drawCavTable() {
+  let h = "<tr><th>Re</th><th>N</th><th>steps</th><th>max dev u</th><th>rms dev u</th><th>max dev v</th><th>rms dev v</th><th>ψ min</th></tr>";
+  D.cavity.forEach(c => { h += `<tr><td>${c.Re}</td><td>${c.N}</td><td>${c.steps.toLocaleString()}</td><td>${c.u_max_abs_dev.toFixed(4)}</td><td>${c.u_rms_dev.toFixed(4)}</td><td>${c.v_max_abs_dev.toFixed(4)}</td><td>${c.v_rms_dev.toFixed(4)}</td><td>${c.psi_min.toFixed(5)}</td></tr>`; });
+  $("cavtab").innerHTML = h;
+}
+
+function drawTbTable() {
+  const t = D.throughput, idx = [2, 3, 4];
+  const rows = [["FP64", "f64"], ["FP64 + blocked smoother", "f64 + blocked smoother"], ["mixed", "mixed"], ["mixed + blocked smoother", "mixed + blocked smoother"]];
+  let h = "<tr><th>configuration</th>" + idx.map(i => `<th>N = ${t.N[i]}</th>`).join("") + "</tr>";
+  rows.forEach(([name, k], r) => { h += `<tr><td>${name}</td>` + idx.map(i => `<td class="${r === 3 ? "best" : ""}">${t[k][i].toFixed(2)}</td>`).join("") + "</tr>"; });
+  $("tbtab").innerHTML = h;
+}
+
+document.getElementById("absw").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; abN = b.dataset.n;
+  document.querySelectorAll("#absw button").forEach(x => x.classList.toggle("on", x === b)); drawAbl(); });
+document.getElementById("resw").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; re = b.dataset.re;
+  document.querySelectorAll("#resw button").forEach(x => x.classList.toggle("on", x === b)); drawCav(); });
+
+fetch("../data/s1.json").then(r => r.json()).then(d => {
+  D = d;
+  $("bw").textContent = d.bandwidth.copy_GBps_median.toFixed(1) + " GB/s";
+  $("ver64").textContent = d.verification.f64.toExponential(1).replace("e-", " × 10⁻").replace(/⁻(\d+)/, (m, p) => "⁻" + sup(p));
+  $("ord64").textContent = d.convergence.f64.order_linf.map(v => v.toFixed(3)).join(", ");
+  drawConv(); drawRes(); drawAbl(); drawThr(); drawCav(); drawCavTable(); drawTbTable();
+  const c = d.roofline.ceilings;
+  $("rf-clk").textContent = c.sm_clock_GHz.toFixed(3); $("rf-cyc").textContent = c.fp64_cycles_per_warp_inst.toFixed(1);
+  $("rf-bw").textContent = c.dram_GBps_spec.toFixed(1); $("rf-bwn").textContent = c.dram_GBps_ncu.toFixed(1);
+  drawRoof(); drawRoofTable(); drawTbcTable();
+  const st = d.tb_step; $("st-f64").textContent = st.f64_2048.speedup.toFixed(2) + "×"; $("st-mx").textContent = st.mixed_2048.speedup.toFixed(2) + "×";
+  $("thr-a").textContent = d.throughput["f64 (milestone 1)"][4].toFixed(0); $("thr-b").textContent = d.throughput["mixed + blocked smoother"][4].toFixed(0);
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const go = () => window.renderMathInElement ? renderMathInElement(document.body, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "\\(", right: "\\)", display: false }] }) : setTimeout(go, 50); go();
+});
+addEventListener("scroll", () => $("nav").classList.toggle("solid", scrollY > 20), { passive: true });
+const links = [...document.querySelectorAll("#toc a")];
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle("on", l.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "-40% 0px -55% 0px" });
+document.querySelectorAll("article section").forEach(s => io.observe(s));
+</script>
+</body>
+</html>

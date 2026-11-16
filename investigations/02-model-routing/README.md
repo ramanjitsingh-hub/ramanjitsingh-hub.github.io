@@ -1,4 +1,4 @@
-# Investigation 04 · When is a cheap model good enough?
+# Investigation 02 · When is a cheap model good enough?
 
 Luna sends each request to the cheapest language model that can handle it. This investigation studies that rule as a decision under uncertainty, on public data where every prompt was answered by every model.
 
@@ -48,7 +48,7 @@ Limitation: the judge is a Llama model and may favour Llama-style answers. This 
 python prepare.py           # arrays + costs
 python fit_routers.py       # features, ridge and boosted trees (~10 min)
 python run_milestone1.py    # results/milestone1.json (leave-one-family-out ~20 min the first time, cached after)
-python export_site_data.py  # site/data/inv04.json
+python export_site_data.py  # site/data/inv02.json
 ```
 
 ## Milestone 2 · partial feedback (`run_milestone2.py`)

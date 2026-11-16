@@ -316,13 +316,13 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
 
   <div class="inv">
     <div class="text">
-      <div class="num">04</div>
+      <div class="num">02</div>
       <h3>When is a cheap AI model good enough?</h3>
       <div class="status mono"><i></i>in progress · milestones 1 and 2 complete</div>
       <p class="plain">Luna sends each request to the cheapest AI model that can handle it. I tested that idea on 44,241 questions answered by 13 models, from GPT-4o to small open models. A router that reads the question matches GPT-4o's quality for about a tenth of the cost. Most of that gain comes from recognising the type of task, though, and on a type it has never seen the router does worse than a fixed choice.</p>
       <p class="techline">Decision theory for routing under a budget, score prediction from text, bootstrap intervals, and a quality guarantee certified with betting martingales.</p>
       <p class="mono" style="margin-top:12px;font-size:11px">Public benchmark data. No Luna user data is used.</p>
-      <a class="more" href="04/">Read investigation 04 →</a>
+      <a class="more" href="02/">Read investigation 02 →</a>
     </div>
     <div class="side">
       <div class="bignum">
@@ -336,14 +336,14 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
 
   <div class="prop">
     <div class="h">next questions</div>
-    <div class="row"><span class="k">05</span><h4>What can a startup learn from fifty users?</h4><p>How wide the honest uncertainty is around retention and conversion at early-stage scale, and how to report it.</p><span class="tag mono">proposed</span></div>
-    <div class="row"><span class="k">06</span><h4>When does mixing keyword and meaning search help?</h4><p>Rank fusion behind Luna's memory search, tested with paired statistics on public benchmarks.</p><span class="tag mono">proposed</span></div>
+    <div class="row"><span class="k">03</span><h4>What can a startup learn from fifty users?</h4><p>How wide the honest uncertainty is around retention and conversion at early-stage scale, and how to report it.</p><span class="tag mono">proposed</span></div>
+    <div class="row"><span class="k">04</span><h4>When does mixing keyword and meaning search help?</h4><p>Rank fusion behind Luna's memory search, tested with paired statistics on public benchmarks.</p><span class="tag mono">proposed</span></div>
   </div>
 
   <div class="prop" id="systems">
     <div class="h">systems · earlier investigations on GPU computing</div>
-    <div class="row"><span class="k">02</span><h4><a href="02/">A fluid simulator for a laptop GPU</a></h4><p>A Navier–Stokes solver written from scratch in CUDA, verified to 10⁻¹⁶ and made 13.5× faster on small grids. It runs live further down this page.</p><span class="tag mono">4 milestones</span></div>
-    <div class="row"><span class="k">03</span><h4><a href="03/">The anatomy of a graphics card</a></h4><p>328 measured configurations, each tested against a model written down first, including a hidden 16-entry address cache.</p><span class="tag mono">2 milestones</span></div>
+    <div class="row"><span class="k">S1</span><h4><a href="s1/">A fluid simulator for a laptop GPU</a></h4><p>A Navier–Stokes solver written from scratch in CUDA, verified to 10⁻¹⁶ and made 13.5× faster on small grids. It runs live further down this page.</p><span class="tag mono">4 milestones</span></div>
+    <div class="row"><span class="k">S2</span><h4><a href="s2/">The anatomy of a graphics card</a></h4><p>328 measured configurations, each tested against a model written down first, including a hidden 16-entry address cache.</p><span class="tag mono">2 milestones</span></div>
   </div>
 </div></section>
 
@@ -353,7 +353,7 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
     <div class="say">
       <div class="mono"><span class="tick"></span>§5 · Live demo</div>
       <h2>This is a real fluid simulation, running on your computer right now.</h2>
-      <p>It is the solver from investigation 02, solving the equations of fluid motion many times a second. Move your mouse through it to stir the flow.</p>
+      <p>It is the solver from <a href="s1/">systems study S1</a>, solving the equations of fluid motion many times a second. Move your mouse through it to stir the flow.</p>
     </div>
     <div class="annot mono">
       <div id="a-title">fig. 0 &nbsp;incompressible flow, live</div>
@@ -400,7 +400,7 @@ try {
     if (s.maxDiv != null) set("a-div", s.maxDiv.toExponential(1)); } });
 } catch (e) { ok = false; }
 if (ok) {
-  set("a-title", "investigation 02 solver, on your GPU");
+  set("a-title", "systems S1 solver, on your GPU");
   set("a-v1", "Heun RK2, conservative central");
   set("a-v2", "2 multigrid V(2,2) cycles"); set("a-k3", "WebGPU");
 } else { window.startCpuFlow(); }

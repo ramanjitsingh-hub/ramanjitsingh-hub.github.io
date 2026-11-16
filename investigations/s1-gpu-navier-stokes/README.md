@@ -158,4 +158,4 @@ The plain red-black smoother `k_smooth` has the same divergence (16.0 lanes) but
 ## Next
 1. A higher-accuracy reference for the cavity to settle the residual difference from Ghia.
 2. Find why a full mixed time step gains more from the divergence fix than its V-cycle does.
-3. Investigation 03, the anatomy of GPU computation, built on these kernels and on the divergence finding.
+3. Systems study S2, the anatomy of GPU computation, built on these kernels and on the divergence finding.

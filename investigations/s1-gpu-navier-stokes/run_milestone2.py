@@ -1,4 +1,4 @@
-"""Investigation 02, milestone 2: latency ablation, mixed-precision multigrid, final benchmarks.
+"""Systems study S1, milestone 2: latency ablation, mixed-precision multigrid, final benchmarks.
 
     ./build.sh && python run_milestone2.py      # writes results/milestone2.json
 """

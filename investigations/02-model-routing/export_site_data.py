@@ -1,9 +1,9 @@
-"""Copy the published numbers into site/data/inv04.json. Never edit that file by hand."""
+"""Copy the published numbers into site/data/inv02.json. Never edit that file by hand."""
 import json
 from pathlib import Path
 
 HERE = Path(__file__).parent
-SITE = HERE.parent.parent / "site" / "data" / "inv04.json"
+SITE = HERE.parent.parent / "site" / "data" / "inv02.json"
 
 
 def thin(curve, n=120):

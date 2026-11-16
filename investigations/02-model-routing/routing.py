@@ -1,4 +1,4 @@
-"""Core routines for Investigation 04: routing prompts between language models.
+"""Core routines for Investigation 02: routing prompts between language models.
 
 Notation. n prompts, K models. S[i,k] in [0,1] is the judged score of model k on
 prompt i, C[i,k] its cost in USD. A router sees an estimate mu_hat[i,k] of the

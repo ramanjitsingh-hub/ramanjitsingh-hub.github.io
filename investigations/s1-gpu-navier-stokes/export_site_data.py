@@ -1,4 +1,4 @@
-"""Copy the numbers the website renders from results/ into site/data/inv02.json. Never edited by hand.
+"""Copy the numbers the website renders from results/ into site/data/s1.json. Never edited by hand.
 
     python export_site_data.py
 """
@@ -48,5 +48,5 @@ tbc = json.loads((R / "tb_compact.json").read_text())
 out["tb_compact"] = {k: {kk: v[kk] for kk in ("branch", "compact", "speedup")} for k, v in tbc["vcycle_ms"].items()}
 out["tb_step"] = {k: {kk: v[kk] for kk in ("branch", "compact", "speedup")} for k, v in tbc["step_ms"].items()}
 SITE.mkdir(parents=True, exist_ok=True)
-(SITE / "inv02.json").write_text(json.dumps(out, separators=(",", ":")))
-print("wrote", SITE / "inv02.json", round((SITE / "inv02.json").stat().st_size / 1024, 1), "KB")
+(SITE / "s1.json").write_text(json.dumps(out, separators=(",", ":")))
+print("wrote", SITE / "s1.json", round((SITE / "s1.json").stat().st_size / 1024, 1), "KB")

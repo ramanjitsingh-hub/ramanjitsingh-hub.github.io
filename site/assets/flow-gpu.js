@@ -1,4 +1,4 @@
-// flow-gpu.js  WebGPU port of investigation 02's solver for the homepage hero.
+// flow-gpu.js  WebGPU port of systems study S1's solver for the homepage hero.
 //
 // Same discretisation as src/ns2d.cu: MAC staggered grid, doubly periodic, conservative central
 // advection, 5-point viscous term, projection by geometric multigrid V(2,2) with red-black
