@@ -29,7 +29,7 @@ Metric: next-month retention, meaning bought again in the following calendar mon
 2. **Cohorts differ, but less than they appear to.**
    - The χ² test of equal rates gives 55.4 on 21 df, p = 6 × 10⁻⁵.
    - The spread of cohort rates (sd 5.1 points) combines a true between-cohort sd of 3.9 with a sampling sd of 3.2, so about 59% of the variance between cohorts is real.
-3. **Empirical Bayes shrinkage.** This uses a beta-binomial model with a moment-matched prior, on 2,000 subsamples of the 15 cohorts with at least 150 customers.
+3. **Empirical Bayes shrinkage.** This uses a beta-binomial model with a moment-matched prior, on 2,000 subsamples of the 14 cohorts with at least 150 customers.
 
    | users per cohort | raw RMSE | pooled RMSE | EB RMSE | EB better |
    |---|---|---|---|---|
