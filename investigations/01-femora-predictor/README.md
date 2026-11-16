@@ -1,6 +1,6 @@
 # 01. Re-deriving a production cycle predictor
 
-**Status. In progress.** Synthetic-data study complete.
+**Status. In progress.** Milestone 1 (synthetic-data study) and milestone 2 (conformal ranges) complete.
 
 **Data note.** The production model studied here ran in FemoraAI on real users' data. Every result in this investigation is computed on synthetic data with known ground truth. No FemoraAI user data is used or published.
 
@@ -44,6 +44,24 @@ Lower is better for MAE, CRPS and log score. The log-score gap (4.17 vs 2.73) co
 **5. The feedback loop does not persist (by code reading).** `AutoEvaluator` loads, tunes and saves its own copy of the model state. `updateOnNewPeriod` then saves the copy it loaded earlier, overwriting the tuned α and σ-scale. Simulating the loop as intended changes little (coverage 0.749 → 0.763, lockout among shifted users 9.1% → 6.8%). This is inferred from Spring Data's whole-document `save()`, not reproduced against a running service.
 
 **6. The "hazard" endpoint returns a pmf, not a hazard, and ignores elapsed days.** On daily "does it start today?" forecasts over each user's final cycle, the proper hazard from the grid model has Brier score **0.0251** against **0.0273** for the production pmf (main cohort).
+
+## Milestone 2 · ranges with a guarantee (`run_conformal.py`, 2026-11-16)
+Split conformal prediction, calibrated separately at each cycle index with one forecast per user. This makes users the exchangeable unit, and within-user time dependence never enters the argument. 4,000 fresh users from the contaminated cohort, 200 random calibration/test splits of 2,000/2,000, α = 0.2.
+
+| range | coverage (5 to 95% of splits) | width (d) | after level shift | after gate rejection |
+|---|---|---|---|---|
+| production | 0.747 (0.744 to 0.750) | 7.26 | 0.597 | 0.592 |
+| conformal production | 0.801 (0.795 to 0.806) | 8.62 | 0.671 | 0.659 |
+| conformal production, Mondrian by gate state | 0.802 | 8.76 | 0.705 | 0.803 |
+| grid Bayes | 0.849 | 10.28 | 0.823 | 0.836 |
+| conformal grid Bayes | 0.842 | 9.86 | 0.823 | 0.835 |
+
+Findings:
+- **The marginal guarantee holds** at every cycle (0.798 to 0.831).
+- **It is an average.** Users after a level shift, or right after a gate rejection, are under-covered.
+- **Calibrating within an observable state fixes part of it.** Calibrating separately by "the gate rejected the last cycle" restores 80% in both groups, but the shift itself is unobserved.
+- **Discrete scores make the guarantee a floor.** The grid filter's whole-day scores keep conformal grid ranges at 0.842.
+- **Distribution shift breaks it.** Calibrated on the main cohort and deployed on the misspecified one, coverage falls to 0.754. Recalibrating on 1,000 new users gives 0.806, with 10.7-day ranges.
 
 ## Limitations
 - Synthetic data only, so the size of every effect depends on the generator's assumptions. The direction of findings 1, 2, 4 and 5 does not, since they follow from the algebra or the code.

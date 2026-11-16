@@ -35,9 +35,9 @@ table.res td.neg{color:#9A5B5B}
 <header class="top"><div class="wrap grid">
   <div class="kicker mono"><span class="tick"></span>Investigation 04 · Model routing</div>
   <h1>When is a cheap model good enough?</h1>
-  <p class="abstract">Luna, the assistant I am building, sends each request to the cheapest model that can handle it. This investigation measures what that rule is worth. On 44,241 prompts answered by 13 language models, a router that reads only the prompt matches GPT-4o at about a tenth of its cost. Most of that gain comes from recognising the kind of task, and on a kind of task it has never seen, the same router does worse than a fixed model. A certified version keeps its promise, and the page measures what the promise costs.</p>
+  <p class="abstract">Luna, the assistant I am building, sends each request to the cheapest model that can handle it. This investigation measures what that rule is worth. On 44,241 prompts answered by 13 language models, a router that reads only the prompt matches GPT-4o at about a tenth of its cost. Most of that gain comes from recognising the kind of task, and on a kind of task it has never seen, the same router does worse than a fixed model. A certified version keeps its promise, and the page measures what the promise costs. Milestone 2 takes away the full answer sheet. A router that sees only the answer it paid for learns best with no deliberate exploration at all, and logs from one router can rank another before it ships, though less sharply than one would hope.</p>
   <div class="side">
-    <div class="status mono"><i></i>in progress · milestone 1 complete</div>
+    <div class="status mono"><i></i>in progress · milestones 1 and 2 complete</div>
     <div class="datanote"><b>Data.</b> SPROUT, a public routing benchmark<sup class="r"><a href="#refs">[1]</a></sup>. Each answer is scored from 0 to 1 by a Llama 3.1 70B judge against a reference answer, and costs are token counts times list prices. No Luna user data is used.</div>
     <dl class="meta">
       <dt>language</dt><dd>Python · NumPy, scikit-learn</dd>
@@ -59,8 +59,10 @@ table.res td.neg{color:#9A5B5B}
     <li><a href="#s7"><span>7</span>A kind of task never seen</a></li>
     <li><a href="#s8"><span>8</span>How much of the oracle is luck</a></li>
     <li><a href="#s9"><span>9</span>A guarantee, and its price</a></li>
-    <li><a href="#s10"><span>10</span>What carries back to Luna</a></li>
-    <li><a href="#s11"><span>11</span>Reproduce</a></li>
+    <li><a href="#s10"><span>10</span>One answer per prompt</a></li>
+    <li><a href="#s11"><span>11</span>Judging a router before it ships</a></li>
+    <li><a href="#s12"><span>12</span>What carries back to Luna</a></li>
+    <li><a href="#s13"><span>13</span>Reproduce</a></li>
     <li><a href="#refs"><span>·</span>References</a></li>
   </ol></aside>
 
@@ -195,18 +197,59 @@ table.res td.neg{color:#9A5B5B}
   </section>
 
   <section id="s10">
-    <h2><span class="n">§10</span>What carries back to Luna</h2>
-    <p>Three lessons carry over. A router should be judged against the hull of fixed models, because a random mix of two models is free to build and already beats every single model in between. Most of the saving comes from knowing the kind of task, so a router belongs on a product's own traffic, and has to be checked again when that traffic changes, since Section 7 shows it can fall below a fixed choice on unfamiliar work. And a promise about quality needs a held-out sample and a valid test. A threshold that looks safe on validation fails about four times in ten.</p>
-    <p>The next milestone takes up the question that this data hides. In deployment a router sees only the score of the model it chose, never the other twelve. Learning under that partial feedback is a contextual bandit problem, with its own trade-off between trying models and using the best one known. I will also replace the TF-IDF features with sentence embeddings computed on the laptop GPU, to see how much of the within-benchmark gap of Section 6 better features can close.</p>
+    <h2><span class="n">§10</span>One answer per prompt</h2>
+    <p class="lead">Every router so far learned from all 13 answers to each training prompt. A deployed router never has that. It sees the answer it paid for and nothing else.</p>
+    <p>Learning under this partial feedback is a contextual bandit problem. Prompts arrive one at a time. The router picks a model, earns the reward \(r = Y_k - \lambda c_k\) for that model only, and updates. If it always picks what currently looks best it may never learn that another model is better, so the textbook answer is to explore on purpose. I compare five learners, all with one linear reward model per model over 64 dimensions of the text features. <b>Greedy</b> always picks the best current estimate. <b>ε-greedy</b> picks a random model 5% or 20% of the time. <b>LinUCB</b> adds an optimism bonus \(\alpha \sqrt{x^\top A_k^{-1} x}\) that is large where model \(k\) has seen little data like \(x\)<sup class="r"><a href="#refs">[10]</a></sup>. <b>Thompson sampling</b> picks by a random draw from each model's posterior<sup class="r"><a href="#refs">[11]</a></sup>. A <b>full-information</b> learner, which sees all 13 rewards, marks what partial feedback costs.</p>
+    <p>The 37,604 training and validation prompts are streamed in five random orders, at three prices of quality. At \(\lambda = 100\), spending one cent on a prompt costs as much as a perfect answer is worth. Regret is measured against the best single model in hindsight, which is GPT-4o mini at all three prices.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 7 &nbsp;cumulative regret against the best fixed model, mean of five orders</span><span class="seg" id="lamseg"><button data-l="30">λ = 30</button><button data-l="100" class="on">λ = 100</button><button data-l="300">λ = 300</button></span></div>
+      <svg id="reg" viewBox="0 0 860 340" role="img" aria-label="Cumulative regret of bandit algorithms"></svg>
+      <div class="legend mono" id="regleg"></div>
+    </div>
+    <p class="cap" id="regcap"><b>Figure 7.</b> ·</p></div>
+    <table class="res" id="bandtab"></table>
+    <p class="cap"><b>Table 5.</b> At the price selected above. "Mean reward" is over the whole stream, learning included. The test columns freeze each learner's final model and route the 6,637 test prompts with it.</p>
+    <p id="bandtext">·</p>
   </section>
 
   <section id="s11">
-    <h2><span class="n">§11</span>Reproduce</h2>
+    <h2><span class="n">§11</span>Judging a router before it ships</h2>
+    <p>A product team with a working router and a better idea faces a second problem. Shipping the new router to find out is risky. The logs of the current one hold an answer, but they record only the models the current router chose. Off-policy evaluation estimates the new router's value from those logs. It can rarely be checked, because the truth would require running the new router. Here the truth is known for every candidate.</p>
+    <p>The logging router is a simple linear router on the 64 features, made to explore by choosing a random model 20% of the time, so every model has a known probability \(p(a \mid x) &gt; 0\) of being chosen. It runs once over the test prompts. The new router's value is then estimated in four ways, and the whole logging process is replayed 300 times.</p>
+    <div class="prop">
+      <div class="h">Proposition 4 · reweighting, and a second chance</div>
+      <p>Let a new router choose \(\pi(x)\), and let the log hold \((x_i, a_i, r_i)\) with known \(p(a_i \mid x_i)\). The inverse-propensity estimate</p>
+      <div class="eq">$$\hat V_{\text{IPS}} = \frac1n \sum_i \frac{\mathbf 1\{a_i = \pi(x_i)\}}{p(a_i \mid x_i)}\, r_i$$</div>
+      <p>is unbiased. So is the doubly robust estimate \(\hat V_{\text{DR}} = \frac1n \sum_i \big[\hat q(x_i, \pi(x_i)) + \frac{\mathbf 1\{a_i = \pi(x_i)\}}{p(a_i \mid x_i)}\,(r_i - \hat q(x_i, a_i))\big]\) for any reward model \(\hat q\) fitted on other data, and its variance is small when \(\hat q\) is accurate.</p>
+      <p class="proof"><em>proof</em>Given \(x\), \(\mathbb E\big[\mathbf 1\{a = \pi(x)\}\, r / p(a \mid x)\big] = \sum_a p(a \mid x)\, \mathbf 1\{a = \pi(x)\}\, \mu_a(x) / p(a \mid x) = \mu_{\pi(x)}(x)\), the new router's expected reward at \(x\). For DR, apply the same identity to \(r - \hat q(x, a)\), whose conditional mean when \(a = \pi(x)\) is \(\mu_{\pi(x)}(x) - \hat q(x, \pi(x))\). It cancels the error of the first term exactly. ∎</p>
+    </div>
+    <p>The four estimates are the <b>direct method</b>, which trusts a reward model \(\hat q\) learned from the logs, <b>IPS</b>, its <b>self-normalised</b> version<sup class="r"><a href="#refs">[13]</a></sup>, and <b>doubly robust</b><sup class="r"><a href="#refs">[12]</a></sup>. The reward model is cross-fitted, learned on one half of the log and applied to the other, so the proposition applies exactly.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 8 &nbsp;estimate minus true value, ±1 standard deviation over 300 replays of the log</span></div>
+      <svg id="ope" viewBox="0 0 860 400" role="img" aria-label="Bias and spread of off-policy estimators"></svg>
+      <div class="legend mono" id="opeleg"></div>
+    </div>
+    <p class="cap" id="opecap"><b>Figure 8.</b> ·</p></div>
+    <table class="res" id="opetab"></table>
+    <p class="cap"><b>Table 6.</b> "Logged" is how often the logging router's choice agreed with the new router's, which is the only data IPS can use. Coverage is the share of replays whose 95% normal interval contained the true value.</p>
+    <p id="opetext">·</p>
+  </section>
+
+  <section id="s12">
+    <h2><span class="n">§12</span>What carries back to Luna</h2>
+    <p>Three lessons carry over. A router should be judged against the hull of fixed models, because a random mix of two models is free to build and already beats every single model in between. Most of the saving comes from knowing the kind of task, so a router belongs on a product's own traffic, and has to be checked again when that traffic changes, since Section 7 shows it can fall below a fixed choice on unfamiliar work. And a promise about quality needs a held-out sample and a valid test. A threshold that looks safe on validation fails about four times in ten.</p>
+    <p id="lessons2">·</p>
+    <p>Two things remain open. TF-IDF features miss most of the shared difficulty that Section 8 found, and sentence embeddings computed on the laptop GPU may recover some of it. And the certified router of Section 9 assumes the next prompts look like the calibration prompts, which Section 7 shows is exactly the assumption a product breaks.</p>
+  </section>
+
+  <section id="s13">
+    <h2><span class="n">§13</span>Reproduce</h2>
 <pre><span class="c"># download the five SPROUT parquet files into data/raw/, then</span>
 cd investigations/04-model-routing
 python prepare.py           <span class="c"># compact arrays, costs from list prices</span>
 python fit_routers.py       <span class="c"># TF-IDF features, ridge and boosted trees, about 10 minutes</span>
-python run_milestone1.py    <span class="c"># every number on this page, results/milestone1.json</span>
+python run_milestone1.py    <span class="c"># sections 3 to 9, results/milestone1.json</span>
+python run_milestone2.py    <span class="c"># sections 10 and 11, results/milestone2.json, about 8 minutes</span>
 python export_site_data.py  <span class="c"># site/data/inv04.json</span></pre>
     <p>The dataset card gives no licence, so this repository publishes only statistics computed from it, never the prompts or answers. The proofs are written out in <code>THEORY.md</code>.</p>
   </section>
@@ -223,6 +266,11 @@ python export_site_data.py  <span class="c"># site/data/inv04.json</span></pre>
       <li><span><i>L. Guttman.</i> A basis for scaling qualitative data. American Sociological Review 9(2), 139–150, 1944.</span></li>
       <li><span><i>J. E. Smith, R. L. Winkler.</i> The optimizer's curse: skepticism and postdecision surprise in decision analysis. Management Science 52(3), 311–322, 2006.</span></li>
       <li><span><i>W. Hoeffding.</i> Probability inequalities for sums of bounded random variables. Journal of the American Statistical Association 58(301), 13–30, 1963.</span></li>
+      <li><span><i>L. Li, W. Chu, J. Langford, R. E. Schapire.</i> A contextual-bandit approach to personalized news article recommendation. WWW 2010, 661–670.</span></li>
+      <li><span><i>S. Agrawal, N. Goyal.</i> Thompson sampling for contextual bandits with linear payoffs. ICML 2013, 127–135.</span></li>
+      <li><span><i>M. Dudík, J. Langford, L. Li.</i> Doubly robust policy evaluation and learning. ICML 2011, 1097–1104.</span></li>
+      <li><span><i>A. Swaminathan, T. Joachims.</i> The self-normalized estimator for counterfactual learning. NeurIPS 2015, 3231–3239.</span></li>
+      <li><span><i>H. Bastani, M. Bayati, K. Khosravi.</i> Mostly exploration-free algorithms for contextual bandits. Management Science 67(3), 1329–1349, 2021.</span></li>
     </ol>
   </section>
 
@@ -413,9 +461,66 @@ function drawCert() {
   $("certtext").innerHTML = `The naive rule misses the target in ${pct(nvmin, 0)} to ${pct(nvmax, 0)} of runs, whatever the sample size, because it always lands on a point whose true score sits at the edge. Both certified rules stay within their promise, at most ${pct(vmax)} against the 10% allowed. The price is caution. With 250 calibration prompts the betting rule abstains in ${pct(b250.abstain, 0)} of runs, and with 4,000 it brings the mean cost down to ${pct(b4.cost_frac_mean, 0)} of GPT-4o, still far above the ${pct(G.best_feasible_cost_frac)} that is truly achievable. The router clears GPT-4o by only about two points, and certifying a margin that small takes thousands of samples. Hoeffding's bound ignores how concentrated the scores are and needs even more. A product owner who wants a signed promise should expect to pay for it in calibration data.`;
 }
 
+const ALGO = { greedy: ["greedy", "#1D1E20"], "egreedy_0.05": ["ε-greedy 5%", "#9FBCD6"], "egreedy_0.2": ["ε-greedy 20%", "#6F95BA"],
+  "linucb_0.3": ["LinUCB α = 0.3", "#9D93C8"], "linucb_1.0": ["LinUCB α = 1", "#6F64A8"], "thompson_0.3": ["Thompson", "#A3B59B"], full: ["full information", "#8A8C8F"] };
+let lamSel = "100";
+function drawBandit() {
+  const B = D.m2.bandit[lamSel + ".0"], svg = $("reg"); svg.innerHTML = "";
+  const all = Object.values(B.algos).flatMap(a => a.regret_mean), ymax = Math.max(...all), ymin = Math.min(0, ...all);
+  const step = ymax > 2500 ? 1000 : 500, yt = []; for (let v = Math.ceil(ymin / step) * step; v <= ymax; v += step) yt.push(v === 0 ? 0 : v);
+  const a = axes(svg, { W: 860, H: 340, L: 64, R: 18, T: 22, B: 32, x0: 50, x1: 40000, y0: ymin * 1.05, y1: ymax * 1.08, xlog: true,
+    xt: [100, 1000, 10000], xfmt: v => v.toLocaleString(), yt, yfmt: v => v.toLocaleString(), xl: "prompts seen", yl: "cumulative regret" });
+  mk(svg, "line", { x1: 64, x2: 842, y1: a.sy(0), y2: a.sy(0), stroke: C.rule });
+  txt(svg, 840, a.sy(0) - 6, "best fixed model, GPT-4o mini", { "text-anchor": "end" });
+  Object.entries(B.algos).forEach(([k, d]) => { const [n, col] = ALGO[k];
+    mk(svg, "path", { d: poly(d.t.map((t, i) => [a.sx(t), a.sy(d.regret_mean[i])])), fill: "none", stroke: col, "stroke-width": k === "greedy" || k === "full" ? 2 : 1.4, "stroke-dasharray": k === "full" ? "4 3" : "" }); });
+  $("regleg").innerHTML = Object.entries(ALGO).map(([k, [n, col]]) => `<span><i class="sw" style="background:${col}"></i>${n}</span>`).join("");
+  const g = B.algos.greedy, f = B.algos.full;
+  $("regcap").innerHTML = `<b>Figure 7.</b> Regret is the reward the best single model would have earned on the same prompts minus the reward the learner earned, summed over the stream. Rising means falling behind, falling means beating that model. λ = ${lamSel}. The full-information learner ends ${Math.abs(f.regret_mean[f.regret_mean.length - 1]).toFixed(0)} reward units ahead of the best fixed model, and greedy ${g.regret_mean[g.regret_mean.length - 1].toFixed(0)} behind.`;
+  let h = "<tr><th>learner</th><th>mean reward</th><th>final regret</th><th>test score</th><th>test cost, share of GPT-4o</th></tr>";
+  Object.entries(B.algos).forEach(([k, d]) => { h += `<tr><td>${ALGO[k][0]}</td><td${k === "greedy" ? ' class="best"' : ""}>${d.avg_reward.toFixed(4)}</td><td>${Math.round(d.regret_mean[d.regret_mean.length - 1]).toLocaleString()}</td><td>${d.test_score.toFixed(3)}</td><td>${pct(d.test_cost_frac)}</td></tr>`; });
+  h += `<tr><td>best fixed model</td><td>${B.best_fixed_reward.toFixed(4)}</td><td>0</td><td>·</td><td>·</td></tr>`;
+  $("bandtab").innerHTML = h;
+}
+function banditText() {
+  const L = ["30", "100", "300"].map(l => D.m2.bandit[l + ".0"]);
+  const partial = ["greedy", "egreedy_0.05", "egreedy_0.2", "linucb_0.3", "linucb_1.0", "thompson_0.3"];
+  const greedyBest = L.every(B => partial.every(k => B.algos.greedy.avg_reward >= B.algos[k].avg_reward - 1e-9));
+  const b = L[1], g = b.algos.greedy, f = b.algos.full;
+  $("bandtext").innerHTML = `${greedyBest ? "Greedy earns the most of the six partial-feedback learners at all three prices." : "Greedy is among the best partial-feedback learners."} Every form of deliberate exploration costs more than it teaches. This matches a result of Bastani, Bayati and Khosravi<sup class="r"><a href="#refs">[14]</a></sup>, who showed that when contexts vary enough, a greedy learner explores by accident. Different prompts make different models look best, so every model keeps getting tried.<br><br>Partial feedback is still expensive. Over the whole stream, no partial-feedback learner beats simply using GPT-4o mini, while the full-information learner does. The gap is early. Late in the stream greedy gains on GPT-4o mini at λ = 30 and 100, and its final model routes the test prompts almost as well as the full-information one, ${g.test_score.toFixed(3)} against ${f.test_score.toFixed(3)} at about ${pct(g.test_cost_frac, 0)} of GPT-4o's cost. The router reaches a good policy. Paying for the lessons along the way is what keeps it behind the best fixed model on a stream of this length.`;
+}
+function drawOpe() {
+  const O = D.m2.ope, svg = $("ope"); svg.innerHTML = "";
+  const T = Object.keys(O.targets), M = ["DM", "IPS", "SNIPS", "DR"], col = { DM: "#A3B59B", IPS: "#6F95BA", SNIPS: "#9D93C8", DR: "#1D1E20" };
+  const L = 230, W = 860, R = 20, top = 16, rowH = 15, gap = 18, x0 = -0.17, x1 = 0.17, yAxis = top + T.length * (4 * rowH * 0.8 + gap) + 2;
+  const sx = v => L + (Math.max(x0, Math.min(x1, v)) - x0) / (x1 - x0) * (W - L - R);
+  let y = top;
+  [-0.15, -0.1, -0.05, 0, 0.05, 0.1, 0.15].forEach(v => { mk(svg, "line", { x1: sx(v), x2: sx(v), y1: top - 4, y2: yAxis, stroke: v === 0 ? C.rule : C.stone });
+    txt(svg, sx(v), yAxis + 16, (v > 0 ? "+" : "") + v.toFixed(2), { "text-anchor": "middle" }); });
+  T.forEach(t => {
+    txt(svg, L - 12, y + rowH * 1.7, t, { "text-anchor": "end", fill: C.ink });
+    M.forEach(m => { const e = O.targets[t][m], c = y + rowH / 2;
+      mk(svg, "line", { x1: sx(e.bias - e.sd), x2: sx(e.bias + e.sd), y1: c, y2: c, stroke: col[m], "stroke-width": 2 });
+      mk(svg, "circle", { cx: sx(e.bias), cy: c, r: 3.6, fill: col[m] }); y += rowH * 0.8; });
+    y += gap;
+  });
+  txt(svg, W - R, yAxis + 32, "estimate − truth, reward units", { "text-anchor": "end" });
+  $("opeleg").innerHTML = M.map(m => `<span><i class="sw" style="background:${col[m]}"></i>${m === "DM" ? "direct method" : m === "SNIPS" ? "self-normalised IPS" : m === "DR" ? "doubly robust" : m}</span>`).join("");
+  $("opecap").innerHTML = `<b>Figure 8.</b> Five candidate routers at λ = ${O.lam}, each evaluated from ${O.reps} independent logs of the ${O.n.toLocaleString()} test prompts. A dot is the mean error, a bar one standard deviation. Bars that reach the edge are clipped.`;
+  let h = "<tr><th>new router</th><th>logged</th><th>true value</th><th>DM bias</th><th>IPS sd</th><th>DR bias</th><th>DR sd</th><th>DR coverage</th><th>IPS coverage</th></tr>";
+  T.forEach(t => { const r = O.targets[t]; h += `<tr><td>${t}</td><td>${pct(r.match_rate, 0)}</td><td>${r.truth.toFixed(3)}</td><td>${r.DM.bias >= 0 ? "+" : "−"}${Math.abs(r.DM.bias).toFixed(3)}</td><td>${r.IPS.sd.toFixed(3)}</td><td>${r.DR.bias >= 0 ? "+" : "−"}${Math.abs(r.DR.bias).toFixed(3)}</td><td>${r.DR.sd.toFixed(3)}</td><td${r.DR.coverage95 < 0.9 ? ' class="neg"' : ""}>${pct(r.DR.coverage95, 0)}</td><td${r.IPS.coverage95 < 0.9 ? ' class="neg"' : ""}>${pct(r.IPS.coverage95, 0)}</td></tr>`; });
+  $("opetab").innerHTML = h;
+  const m1 = O.targets["milestone 1 router"], lg = O.targets["logging router, no exploration"], g4 = O.targets["always GPT-4o"];
+  $("opetext").innerHTML = `Each estimator fails in its own way. The direct method has the smallest spread and is wrong for the router that matters most. For the milestone 1 router it is off by ${Math.abs(m1.DM.bias).toFixed(3)}, because its reward model is not good enough, and no amount of logging fixes that. IPS is unbiased, as Proposition 4 promises, but noisy. For the same router its standard deviation is ${m1.IPS.sd.toFixed(3)}. The doubly robust estimate keeps the lack of bias and cuts the spread to ${m1.DR.sd.toFixed(3)}, with the self-normalised version close behind.<br><br>That is still not sharp enough for the decision a team faces. The milestone 1 router is truly better than the logging router by ${(m1.truth - lg.truth).toFixed(3)}, less than the doubly robust estimate's own standard deviation. With 6,637 logged requests and 20% exploration the logs cannot reliably say which router to ship. The intervals also overstate their confidence for a router the logs rarely agree with. Always using GPT-4o matches the logged choice only ${pct(g4.match_rate, 1)} of the time, the weights \\(1/p\\) reach 65, and the nominal 95% intervals cover the truth in only ${pct(g4.DR.coverage95, 0)} (doubly robust) and ${pct(g4.IPS.coverage95, 0)} (IPS) of replays.`;
+  $("lessons2").innerHTML = `Milestone 2 adds two more. A router learning from its own traffic does not need deliberate exploration here. Greedy learning did best, because varied requests explore for it, but the early lessons are paid for in real money. And a log can rank a new router before it ships only if it holds enough exploration, and enough requests, to resolve differences of a point or two. That is worth knowing before the logging is designed, not after.`;
+  if (window.renderMathInElement) ["opetext", "bandtext"].forEach(id => renderMathInElement($(id), { delimiters: [{ left: "\\(", right: "\\)", display: false }] }));
+}
+document.getElementById("lamseg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; lamSel = b.dataset.l;
+  document.querySelectorAll("#lamseg button").forEach(x => x.classList.toggle("on", x === b)); drawBandit(); });
+
 fetch("../data/inv04.json", { cache: "no-cache" }).then(r => r.json()).then(d => {
   D = d; setupColors();
-  drawMods(); drawHeat(); drawInv(); drawFront(); drawTables(); drawLofo(); drawLuck(); drawCert();
+  drawMods(); drawHeat(); drawInv(); drawFront(); drawTables(); drawLofo(); drawLuck(); drawCert(); if (D.m2) { drawBandit(); banditText(); drawOpe(); }
   updateShares(); $("lam").addEventListener("input", updateShares);
   if (window.renderMathInElement) renderMathInElement($("rtext"), { delimiters: [{ left: "\\(", right: "\\)", display: false }] });
 });

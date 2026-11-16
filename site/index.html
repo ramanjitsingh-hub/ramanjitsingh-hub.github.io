@@ -289,12 +289,12 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
     <div class="text">
       <div class="num">01</div>
       <h3>What did my own app's prediction model actually do?</h3>
-      <div class="status mono"><i></i>in progress · synthetic-data study complete</div>
+      <div class="status mono"><i></i>in progress · milestones 1 and 2 complete</div>
       <p class="plain">FemoraAI predicted each user's next period with a classic tracking method called a Kalman filter. I rebuilt it line by line and tested it on thousands of simulated users. It mostly worked, but one safety rule could make it stop learning for good.</p>
       <p class="techline">Port of the production Java code, a steady-state analysis, and an exact Bayesian replacement scored with proper scoring rules.</p>
       <div class="facts">
         <div><b>9.1%</b><span>of simulated users whose cycle changed were locked out by that rule</span></div>
-        <div><b>0.75 → 0.85</b><span>how often the "80% likely" range really held, before and after the fix</span></div>
+        <div><b>0.75 → 0.80</b><span>how often the "80% likely" range really held, before and after a conformal guarantee</span></div>
       </div>
       <p class="mono" style="margin-top:12px;font-size:11px">All results use simulated data. The original model ran on real users.</p>
       <a class="more" href="01/">Read investigation 01 →</a>
@@ -318,7 +318,7 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
     <div class="text">
       <div class="num">04</div>
       <h3>When is a cheap AI model good enough?</h3>
-      <div class="status mono"><i></i>in progress · milestone 1 complete</div>
+      <div class="status mono"><i></i>in progress · milestones 1 and 2 complete</div>
       <p class="plain">Luna sends each request to the cheapest AI model that can handle it. I tested that idea on 44,241 questions answered by 13 models, from GPT-4o to small open models. A router that reads the question matches GPT-4o's quality for about a tenth of the cost. Most of that gain comes from recognising the type of task, though, and on a type it has never seen the router does worse than a fixed choice.</p>
       <p class="techline">Decision theory for routing under a budget, score prediction from text, bootstrap intervals, and a quality guarantee certified with betting martingales.</p>
       <p class="mono" style="margin-top:12px;font-size:11px">Public benchmark data. No Luna user data is used.</p>
@@ -337,7 +337,6 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
   <div class="prop">
     <div class="h">next questions</div>
     <div class="row"><span class="k">05</span><h4>What can a startup learn from fifty users?</h4><p>How wide the honest uncertainty is around retention and conversion at early-stage scale, and how to report it.</p><span class="tag mono">proposed</span></div>
-    <div class="row"><span class="k">01</span><h4>Prediction ranges with a guarantee</h4><p>Conformal prediction for the cycle predictor, so that an "80% range" holds 80% of the time by proof.</p><span class="tag mono">next milestone</span></div>
     <div class="row"><span class="k">06</span><h4>When does mixing keyword and meaning search help?</h4><p>Rank fusion behind Luna's memory search, tested with paired statistics on public benchmarks.</p><span class="tag mono">proposed</span></div>
   </div>
 

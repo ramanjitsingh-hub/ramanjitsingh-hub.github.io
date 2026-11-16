@@ -25,7 +25,7 @@
   <h1>Re-deriving a production cycle predictor</h1>
   <p class="abstract">At FemoraAI I shipped a per-user Kalman filter that predicted the start of each user's next period. This investigation ports that system line by line, derives what it actually computes, and finds four concrete failure modes. It then replaces the system with an exact Bayesian grid filter and measures both against ground truth on 6,000 simulated users.</p>
   <div class="side">
-    <div class="status mono"><i></i>in progress · synthetic-data study complete</div>
+    <div class="status mono"><i></i>in progress · milestones 1 and 2 complete</div>
     <div class="datanote"><b>Data note.</b> The production model ran in FemoraAI on real users' data. Every result on this page is computed on synthetic data with known ground truth. No FemoraAI user data is used or shown.</div>
     <dl class="meta" id="meta">
       <dt>cohorts</dt><dd>3 × 2,000 users × 24 cycles</dd>
@@ -46,8 +46,9 @@
     <li><a href="#s5"><span>5</span>An exact Bayesian replacement</a></li>
     <li><a href="#s6"><span>6</span>Results</a></li>
     <li><a href="#s7"><span>7</span>A feedback loop that never saved</a></li>
-    <li><a href="#s8"><span>8</span>Limitations and next steps</a></li>
-    <li><a href="#s9"><span>9</span>Reproduce</a></li>
+    <li><a href="#s8"><span>8</span>Ranges with a guarantee</a></li>
+    <li><a href="#s9"><span>9</span>Limitations and next steps</a></li>
+    <li><a href="#s10"><span>10</span>Reproduce</a></li>
     <li><a href="#refs"><span>·</span>References</a></li>
   </ol></aside>
 
@@ -190,18 +191,40 @@ stateService.save(state)                          <span class="c">// A written, 
   </section>
 
   <section id="s8">
-    <h2><span class="n">§8</span>Limitations and next steps</h2>
-    <p>Every number here depends on a synthetic generator whose parameters are my assumptions, not literature estimates. The direction of the findings in §2, §3, §4 and §7 does not depend on them, since those follow from the algebra or the code. Their size does.</p>
-    <p>The robust model's contamination rates are fixed. Learning them, together with the noise prior, by empirical Bayes across users should remove the clean-data over-coverage. That is the next step. After it comes validation on a licensed public cycle dataset, and then phase two of this line of work, parallel-in-time smoothing on the GPU, where the Kalman recursion above becomes an associative scan<sup class="r"><a href="#refs">[8]</a></sup>.</p>
+    <h2><span class="n">§8</span>Ranges with a guarantee</h2>
+    <p class="lead">The production range promised 80% and delivered 74.7% under contamination. A range should keep its promise by construction, whatever the model gets wrong.</p>
+    <p>Split conformal prediction does this for any forecaster<sup class="r"><a href="#refs">[11]</a></sup>. Measure how badly each forecast missed with a score, here the production error in units of its own spread, \(s = |y - \hat\mu| / \hat\sigma\). Compute that score for \(n\) calibration users at a given cycle. For a new user at the same cycle, report \(\hat\mu \pm \hat q\,\hat\sigma\), where \(\hat q\) is the \(\lceil (n+1)(1-\alpha) \rceil\)-th smallest calibration score.</p>
+    <div class="prop">
+      <div class="h">Proposition 3 · split conformal coverage</div>
+      <p>If the calibration users and the new user are exchangeable, the new user's cycle falls in the range with probability at least \(1 - \alpha\), for any forecaster and any \(n\).</p>
+      <p class="proof"><em>proof</em>The forecaster is fixed before the calibration users are seen, so the \(n+1\) scores are exchangeable and the new score is equally likely to take any rank among them. Ties only help. The cycle is covered exactly when the new score is at most \(\hat q\), which happens when its rank is at most \(\lceil (n+1)(1-\alpha) \rceil\). That has probability at least \(\lceil (n+1)(1-\alpha) \rceil / (n+1) \ge 1 - \alpha\). ∎</p>
+    </div>
+    <p>The calibration uses one forecast per user at each cycle index. So the argument needs users to be exchangeable with each other, which a random sample of users is, and never needs the cycles of one user to be exchangeable over time, which they are not. I simulated 4,000 new users from the contaminated cohort and split them into calibration and test halves 200 times at random.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 6 &nbsp;coverage of the 80% range by cycle, test users, mean of 200 splits</span></div>
+      <svg id="conf" viewBox="0 0 860 300" role="img" aria-label="Coverage by cycle for conformal and original ranges"></svg>
+      <div class="legend mono" id="confleg"></div>
+    </div>
+    <p class="cap" id="confcap"><b>Figure 6.</b> ·</p></div>
+    <table class="res" id="conftab"></table>
+    <p class="cap" id="conftabcap"><b>Table 2.</b> ·</p>
+    <p id="conftext">·</p>
   </section>
 
   <section id="s9">
-    <h2><span class="n">§9</span>Reproduce</h2>
+    <h2><span class="n">§9</span>Limitations and next steps</h2>
+    <p>Every number here depends on a synthetic generator whose parameters are my assumptions, not literature estimates. The direction of the findings in §2, §3, §4 and §7 does not depend on them, since those follow from the algebra or the code. Their size does.</p>
+    <p>The robust model's contamination rates are fixed. Learning them, together with the noise prior, by empirical Bayes across users should remove the clean-data over-coverage. That is the next step, followed by validation on a licensed public cycle dataset. The conformal ranges of §8 would carry over unchanged, recalibrated on the real users.</p>
+  </section>
+
+  <section id="s10">
+    <h2><span class="n">§10</span>Reproduce</h2>
 <pre>git clone https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io
 cd ramanjitsingh-hub.github.io/investigations/01-femora-predictor
 pip install numpy scipy pytest
 python -m pytest -q                <span class="c"># 7 tests</span>
 python run_experiments.py          <span class="c"># writes results/summary.json, figdata.json</span>
+python run_conformal.py            <span class="c"># §8, writes results/conformal.json, about 4 minutes</span>
 python export_site_data.py         <span class="c"># copies the numbers this page renders</span></pre>
     <p>Seeds are fixed, so a rerun reproduces every number on this page. Figure 1 and the homepage figures are computed live in the browser. Every other figure renders <code>site/data/inv01.json</code>, which is exported from the run and never edited by hand.</p>
   </section>
@@ -219,6 +242,9 @@ python export_site_data.py         <span class="c"># copies the numbers this pag
       <li><span><i>S. Särkkä, Á. F. García-Fernández.</i> Temporal parallelization of Bayesian smoothers. IEEE Transactions on Automatic Control 66(1), 299–306, 2021.</span></li>
       <li><span><i>G. W. Brier.</i> Verification of forecasts expressed in terms of probability. Monthly Weather Review 78(1), 1–3, 1950.</span></li>
       <li><span><i>J. R. A. Bull et al.</i> Real-world menstrual cycle characteristics of more than 600,000 menstrual cycles. npj Digital Medicine 2, 83, 2019.</span></li>
+      <li><span><i>V. Vovk, A. Gammerman, G. Shafer.</i> Algorithmic Learning in a Random World. Springer, 2005.</span></li>
+      <li><span><i>J. Lei, M. G'Sell, A. Rinaldo, R. J. Tibshirani, L. Wasserman.</i> Distribution-free predictive inference for regression. Journal of the American Statistical Association 113(523), 1094–1111, 2018.</span></li>
+      <li><span><i>A. N. Angelopoulos, S. Bates.</i> Conformal prediction: a gentle introduction. Foundations and Trends in Machine Learning 16(4), 494–591, 2023.</span></li>
     </ol>
   </section>
 
@@ -348,6 +374,27 @@ function drawTraj(){
   document.getElementById("trajcap").innerHTML=`<b>Figure 4.</b> Forecasts issued before each cycle for ${cap} Exported from the experiment run, not recomputed in the browser.`;
 }
 
+function drawConf(){
+  const F=D.conformal;if(!F)return;const svg=document.getElementById("conf");svg.innerHTML="";
+  const M=F.methods,K=F.cycles;
+  const a=axes(svg,{W:860,H:300,L:46,R:10,T:20,B:30,x0:1,x1:K,y0:.6,y1:.9,xt:[1,4,8,12,16,20,24],yt:[.6,.7,.8,.9],xl:"cycle k"});
+  mk(svg,"line",{x1:a.sx(1),x2:a.sx(K),y1:a.sy(.8),y2:a.sy(.8),stroke:C.sage,"stroke-width":1.5});
+  const sty={"production":[C.graphite,"4 3",1.3],"conformal production":[C.ink,"",1.9],"conformal production, by gate state":["#6F95BA","2 2",1.6],"grid Bayes":[C.lav,"4 3",1.3],"conformal grid Bayes":[C.lavD,"",1.6]};
+  Object.entries(sty).forEach(([m,[col,da,w]])=>{const v=M[m].coverage_by_cycle;
+    mk(svg,"path",{d:poly(v.map((y,i)=>[a.sx(i+1),a.sy(Math.max(.6,Math.min(.9,y)))])),fill:"none",stroke:col,"stroke-dasharray":da,"stroke-width":w});});
+  document.getElementById("confleg").innerHTML=Object.entries(sty).map(([m,[col,da]])=>`<span><i class="sw${da?" dash":""}" style="${da?"border-color:":"background:"}${col}"></i>${m}</span>`).join("")+"<span>green line: 80%</span>";
+  const P=M["production"],CP=M["conformal production"],CG=M["conformal production, by gate state"],G=M["grid Bayes"],CQ=M["conformal grid Bayes"],pc=v=>(100*v).toFixed(1)+"%";
+  document.getElementById("confcap").innerHTML=`<b>Figure 6.</b> ${F.n_cal.toLocaleString()} calibration users and ${F.n_cal.toLocaleString()} test users per split, a fresh calibration at every cycle. The conformal production range stays between ${pc(Math.min(...CP.coverage_by_cycle))} and ${pc(Math.max(...CP.coverage_by_cycle))} at every cycle, including the first, where the forecast is only the user's own guess of her cycle length. The guarantee is over random draws of users, so with one fixed set of 4,000 users a single cycle can sit a fraction of a point below 80%.`;
+  const rows=["production","conformal production","conformal production, by gate state","grid Bayes","conformal grid Bayes"];
+  let h="<tr><th>range</th><th>coverage</th><th>5 to 95% of splits</th><th>width, days</th><th>after a level shift</th><th>gate rejected last cycle</th><th>gate accepted last cycle</th></tr>";
+  rows.forEach(m=>{const r=M[m],g=r.subgroups;h+=`<tr><td>${m}</td><td>${r.coverage_mean.toFixed(3)}</td><td>${r.coverage_q05.toFixed(3)} to ${r.coverage_q95.toFixed(3)}</td><td>${r.width_mean.toFixed(2)}</td><td class="${g["after a level shift"]<.75?"neg":""}">${g["after a level shift"].toFixed(3)}</td><td class="${g["gate rejected last cycle"]<.75?"neg":""}">${g["gate rejected last cycle"].toFixed(3)}</td><td>${g["gate accepted last cycle"].toFixed(3)}</td></tr>`;});
+  document.getElementById("conftab").innerHTML=h;
+  const sh=F.subgroup_share;
+  document.getElementById("conftabcap").innerHTML=`<b>Table 2.</b> Test users, mean over ${F.reps} splits. Cycles after a level shift are ${pc(sh["after a level shift"])} of all cycles, and cycles that follow a rejection by the gate are ${pc(sh["gate rejected last cycle"])}. No range covers a merged cycle from a missed log, which runs about twice the usual length.`;
+  const S=F.shift;
+  document.getElementById("conftext").innerHTML=`The promise holds. The conformal version of the production range covers ${CP.coverage_mean.toFixed(3)} of cycles, and in 95% of splits at least ${CP.coverage_q05.toFixed(3)}, at a mean width of ${CP.width_mean.toFixed(2)} days against the original ${P.width_mean.toFixed(2)}. The same model, with one stored number per cycle, now means what it says. The robust filter was already above 80%, and conformal calibration trims its range from ${G.width_mean.toFixed(2)} to ${CQ.width_mean.toFixed(2)} days but can only bring coverage down to ${CQ.coverage_mean.toFixed(3)}. Its scores are whole days, so the next smaller range would fall below 80%, and the guarantee is a floor, not a target.<br><br>The guarantee is an average over users, and averages hide people. After a level shift the conformal range covers only ${CP.subgroups["after a level shift"].toFixed(3)} of cycles, and after the gate rejects a cycle only ${CP.subgroups["gate rejected last cycle"].toFixed(3)}. Ranges that are honest on average are dishonest for exactly the users the gate has stopped listening to. The fix uses something the system already knows. Calibrating separately for forecasts that follow a rejection and forecasts that do not, a Mondrian split<sup class="r"><a href="#refs">[11]</a></sup>, gives the guarantee within each group, ${CG.subgroups["gate rejected last cycle"].toFixed(3)} and ${CG.subgroups["gate accepted last cycle"].toFixed(3)}, for a range ${(CG.width_mean-CP.width_mean).toFixed(2)} days wider on average. Users after a shift rise to ${CG.subgroups["after a level shift"].toFixed(3)}, still short, because the shift itself is never observed.<br><br>The guarantee also assumes the next users resemble the calibration users. Calibrated on this cohort and applied to the misspecified cohort of §6, with heavier tails and more contamination, coverage falls to ${S["conformal production"].coverage.toFixed(3)}. Recalibrating on 1,000 users of the new cohort restores ${S["conformal production, recalibrated on new cohort"].coverage.toFixed(3)}, with ranges of ${S["conformal production, recalibrated on new cohort"].width.toFixed(1)} days. A deployed service would need to recalibrate as its users change.`;
+}
+
 function drawCohort(){drawCov();drawTable();drawPit();}
 document.querySelectorAll("[data-cohort-switch]").forEach(sw=>sw.addEventListener("click",ev=>{
   const b=ev.target.closest("button");if(!b)return;cohort=b.dataset.c;
@@ -366,7 +413,7 @@ fetch("../data/inv01.json").then(r=>r.json()).then(d=>{
   document.getElementById("ls-3").textContent=pct(L.fraction_all_users);
   const br=d.cohorts["main/as_written"].brier;
   document.getElementById("br-g").textContent=br.grid_bayes.toFixed(4);document.getElementById("br-p").textContent=br.production.toFixed(4);
-  drawGap();drawCohort();drawTraj();
+  drawGap();drawCohort();drawTraj();drawConf();
 });
 
 document.addEventListener("DOMContentLoaded",()=>{

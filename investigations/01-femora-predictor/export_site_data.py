@@ -30,6 +30,8 @@ for uid, e in f["examples"].items():
     ex[tag]["meta"] = {k: v for k, v in e["meta"].items() if k != "level_grid"}
     ex[tag]["level_grid"] = e["meta"]["level_grid"]
 out["examples"] = ex
+if (HERE / "results" / "conformal.json").exists():
+    out["conformal"] = json.loads((HERE / "results" / "conformal.json").read_text())
 
 SITE.mkdir(parents=True, exist_ok=True)
 (SITE / "inv01.json").write_text(json.dumps(out, separators=(",", ":")))

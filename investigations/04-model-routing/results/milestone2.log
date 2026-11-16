@@ -1,0 +1,35 @@
+always GPT-4o mini {"truth": 0.77306, "match_rate": 0.41737, "DM": {"bias": -0.04714, "sd": 0.00754, "rmse": 0.04774}, "IPS": {"bias": 0.00679, "sd": 0.06115, "rmse": 0.06153, "coverage95": 0.95}, "SNIPS": {"bias": 0.00137, "sd": 0.02587, "rmse": 0.02591}, "DR": {"bias": 0.00432, "sd": 0.0284, "rmse": 0.02872, "coverage95": 0.95333}}
+always GPT-4o {"truth": 0.34864, "match_rate": 0.03539, "DM": {"bias": -0.15275, "sd": 0.04253, "rmse": 0.15856}, "IPS": {"bias": 3e-05, "sd": 0.08856, "rmse": 0.08856, "coverage95": 0.91333}, "SNIPS": {"bias": 0.00203, "sd": 0.08235, "rmse": 0.08238}, "DR": {"bias": -0.0001, "sd": 0.08302, "rmse": 0.08302, "coverage95": 0.89667}}
+always Llama 3.2 3B {"truth": 0.62937, "match_rate": 0.01563, "DM": {"bias": -0.35193, "sd": 0.02891, "rmse": 0.35312}, "IPS": {"bias": -0.00833, "sd": 0.06848, "rmse": 0.06898, "coverage95": 0.96}, "SNIPS": {"bias": 0.00081, "sd": 0.04546, "rmse": 0.04547}, "DR": {"bias": -0.00355, "sd": 0.05906, "rmse": 0.05916, "coverage95": 0.95667}}
+logging router, no exploration {"truth": 0.78263, "match_rate": 0.81538, "DM": {"bias": -0.02505, "sd": 0.00239, "rmse": 0.02516}, "IPS": {"bias": 0.00015, "sd": 0.00496, "rmse": 0.00496, "coverage95": 0.98667}, "SNIPS": {"bias": -2e-05, "sd": 0.00209, "rmse": 0.00209}, "DR": {"bias": -5e-05, "sd": 0.00201, "rmse": 0.00202, "coverage95": 1.0}}
+stronger-regularised router {"truth": 0.78208, "match_rate": 0.80888, "DM": {"bias": -0.0243, "sd": 0.0024, "rmse": 0.02442}, "IPS": {"bias": 0.00088, "sd": 0.00985, "rmse": 0.00989, "coverage95": 0.96667}, "SNIPS": {"bias": 0.00029, "sd": 0.00401, "rmse": 0.00402}, "DR": {"bias": 0.00011, "sd": 0.0039, "rmse": 0.0039, "coverage95": 1.0}}
+OPE done 15s
+lam 30.0 greedy         avg reward 0.7937  final regret 151.7  test score 0.83276  cost 0.13605
+lam 30.0 egreedy_0.05   avg reward 0.7883  final regret 354.2  test score 0.83514  cost 0.144
+lam 30.0 egreedy_0.2    avg reward 0.7653  final regret 1217.2  test score 0.83345  cost 0.14616
+lam 30.0 linucb_0.3     avg reward 0.7872  final regret 393.6  test score 0.83248  cost 0.13606
+lam 30.0 linucb_1.0     avg reward 0.7704  final regret 1025.9  test score 0.8314  cost 0.15465
+lam 30.0 thompson_0.3   avg reward 0.7772  final regret 772.4  test score 0.83142  cost 0.13974
+lam 30.0 full           avg reward 0.8217  final regret -902.0  test score 0.84331  cost 0.12627
+lam 100.0 greedy         avg reward 0.7614  final regret 468.7  test score 0.82008  cost 0.08565
+lam 100.0 egreedy_0.05   avg reward 0.7490  final regret 934.9  test score 0.82209  cost 0.08647
+lam 100.0 egreedy_0.2    avg reward 0.7182  final regret 2092.6  test score 0.82123  cost 0.08488
+lam 100.0 linucb_0.3     avg reward 0.7509  final regret 864.4  test score 0.82096  cost 0.08479
+lam 100.0 linucb_1.0     avg reward 0.7327  final regret 1549.4  test score 0.81572  cost 0.08476
+lam 100.0 thompson_0.3   avg reward 0.7418  final regret 1205.5  test score 0.82035  cost 0.08315
+lam 100.0 full           avg reward 0.7840  final regret -379.9  test score 0.82618  cost 0.08616
+lam 300.0 greedy         avg reward 0.6848  final regret 790.7  test score 0.80177  cost 0.06357
+lam 300.0 egreedy_0.05   avg reward 0.6602  final regret 1714.0  test score 0.79693  cost 0.06193
+lam 300.0 egreedy_0.2    avg reward 0.5974  final regret 4075.4  test score 0.79742  cost 0.06342
+lam 300.0 linucb_0.3     avg reward 0.6711  final regret 1306.6  test score 0.79755  cost 0.06205
+lam 300.0 linucb_1.0     avg reward 0.6578  final regret 1805.0  test score 0.79846  cost 0.06314
+lam 300.0 thompson_0.3   avg reward 0.6635  final regret 1589.5  test score 0.79691  cost 0.06168
+lam 300.0 full           avg reward 0.7089  final regret -116.3  test score 0.80962  cost 0.06747
+bandits done 462s
+always GPT-4o mini {"truth": 0.77306, "match_rate": 0.41737, "DM": {"bias": -0.00148, "sd": 0.00748, "rmse": 0.00763}, "IPS": {"bias": 0.00679, "sd": 0.06115, "rmse": 0.06153, "coverage95": 0.95}, "SNIPS": {"bias": 0.00137, "sd": 0.02587, "rmse": 0.02591}, "DR": {"bias": 0.00334, "sd": 0.02622, "rmse": 0.02643, "coverage95": 0.94667}}
+always GPT-4o {"truth": 0.34864, "match_rate": 0.03539, "DM": {"bias": 0.02936, "sd": 0.08175, "rmse": 0.08686}, "IPS": {"bias": 3e-05, "sd": 0.08856, "rmse": 0.08856, "coverage95": 0.91333}, "SNIPS": {"bias": 0.00203, "sd": 0.08235, "rmse": 0.08238}, "DR": {"bias": 0.00193, "sd": 0.08357, "rmse": 0.08359, "coverage95": 0.85667}}
+always Llama 3.2 3B {"truth": 0.62937, "match_rate": 0.01563, "DM": {"bias": -0.01305, "sd": 0.05017, "rmse": 0.05184}, "IPS": {"bias": -0.00833, "sd": 0.06848, "rmse": 0.06898, "coverage95": 0.96}, "SNIPS": {"bias": 0.00081, "sd": 0.04546, "rmse": 0.04547}, "DR": {"bias": 0.00061, "sd": 0.04615, "rmse": 0.04615, "coverage95": 0.95333}}
+logging router, no exploration {"truth": 0.78263, "match_rate": 0.81538, "DM": {"bias": -0.00239, "sd": 0.00231, "rmse": 0.00333}, "IPS": {"bias": 0.00015, "sd": 0.00496, "rmse": 0.00496, "coverage95": 0.98667}, "SNIPS": {"bias": -2e-05, "sd": 0.00209, "rmse": 0.00209}, "DR": {"bias": -6e-05, "sd": 0.002, "rmse": 0.002, "coverage95": 1.0}}
+milestone 1 router {"truth": 0.79807, "match_rate": 0.45643, "DM": {"bias": -0.02429, "sd": 0.00508, "rmse": 0.02482}, "IPS": {"bias": 0.00788, "sd": 0.05847, "rmse": 0.059, "coverage95": 0.94333}, "SNIPS": {"bias": -0.00011, "sd": 0.02258, "rmse": 0.02258}, "DR": {"bias": 0.0005, "sd": 0.02486, "rmse": 0.02487, "coverage95": 0.97333}}
+OPE done 13s
+bandits done 13s
