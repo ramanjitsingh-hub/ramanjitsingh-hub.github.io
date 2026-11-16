@@ -1,0 +1,15 @@
+scifact: 5183 docs, 300 test queries, scored in 1s
+  ndcg@10 {'BM25': 0.66304, 'dense': 0.71276, 'RRF': 0.70964, 'min-max, equal': 0.72858, 'min-max, tuned': 0.73548, 'z over corpus, equal': 0.70584, 'z over top 200, equal': 0.73339, 'z over top 200, tuned': 0.73703}  theory d1 3.90 d2 2.87 rho -0.19 deq 5.32  [6s]
+nfcorpus: 3633 docs, 323 test queries, scored in 3s
+  ndcg@10 {'BM25': 0.32468, 'dense': 0.34484, 'RRF': 0.3537, 'min-max, equal': 0.36684, 'min-max, tuned': 0.36434, 'z over corpus, equal': 0.36107, 'z over top 200, equal': 0.36588, 'z over top 200, tuned': 0.36774}  theory d1 -0.30 d2 -0.34 rho -0.11 deq -0.48  [8s]
+arguana: 8674 docs, 1406 test queries, scored in 5s
+  ndcg@10 {'BM25': 0.27266, 'dense': 0.43444, 'RRF': 0.37736, 'min-max, equal': 0.42932, 'min-max, tuned': 0.43431, 'z over corpus, equal': 0.35793, 'z over top 200, equal': 0.40401, 'z over top 200, tuned': 0.43367}  theory d1 0.86 d2 2.01 rho 0.26 deq 1.81  [33s]
+scidocs: 25657 docs, 1000 test queries, scored in 15s
+  ndcg@10 {'BM25': 0.14761, 'dense': 0.20536, 'RRF': 0.1932, 'min-max, equal': 0.19603, 'min-max, tuned': 0.2066, 'z over corpus, equal': 0.17093, 'z over top 200, equal': 0.19291, 'z over top 200, tuned': 0.21061}  theory d1 -0.51 d2 0.09 rho -0.23 deq -0.34  [49s]
+fiqa: 57638 docs, 648 test queries, scored in 19s
+  ndcg@10 {'BM25': 0.24135, 'dense': 0.403, 'RRF': 0.35775, 'min-max, equal': 0.38717, 'min-max, tuned': 0.41734, 'z over corpus, equal': 0.31215, 'z over top 200, equal': 0.38305, 'z over top 200, tuned': 0.42041}  theory d1 0.38 d2 0.96 rho -0.39 deq 1.22  [62s]
+scifact dense {'RRF': (-0.00312, 0.81512), 'min-max, equal': (0.01582, 0.23638), 'min-max, tuned': (0.02272, 0.20157), 'z over corpus, equal': (-0.00693, 0.67113), 'z over top 200, equal': (0.02063, 0.14759), 'z over top 200, tuned': (0.02427, 0.085)}
+nfcorpus dense {'RRF': (0.00886, 0.46296), 'min-max, equal': (0.022, 0.009), 'min-max, tuned': (0.0195, 0.0105), 'z over corpus, equal': (0.01623, 0.0718), 'z over top 200, equal': (0.02104, 0.0111), 'z over top 200, tuned': (0.02289, 0.0012)}
+arguana dense {'RRF': (-0.05708, 0.0005), 'min-max, equal': (-0.00512, 0.18418), 'min-max, tuned': (-0.00013, 0.91821), 'z over corpus, equal': (-0.07651, 0.0005), 'z over top 200, equal': (-0.03043, 0.0005), 'z over top 200, tuned': (-0.00077, 0.55844)}
+scidocs dense {'RRF': (-0.01216, 0.0051), 'min-max, equal': (-0.00932, 0.044), 'min-max, tuned': (0.00124, 0.89852), 'z over corpus, equal': (-0.03443, 0.0005), 'z over top 200, equal': (-0.01244, 0.0032), 'z over top 200, tuned': (0.00525, 0.0321)}
+fiqa dense {'RRF': (-0.04525, 0.0005), 'min-max, equal': (-0.01584, 0.17127), 'min-max, tuned': (0.01434, 0.0144), 'z over corpus, equal': (-0.09086, 0.0005), 'z over top 200, equal': (-0.01996, 0.0372), 'z over top 200, tuned': (0.0174, 0.0005)}

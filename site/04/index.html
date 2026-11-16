@@ -1,3 +1,261 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Moved</title>
-<meta http-equiv="refresh" content="0; url=../02/"><link rel="canonical" href="../02/"></head>
-<body style="font-family:sans-serif;background:#F6F4EF;color:#1D1E20;padding:40px">This page moved to <a href="../02/">/02/</a>.</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mixing Two Searches</title>
+<meta name="description" content="Investigation 04. When does combining keyword search and meaning search help? A two-signal model that predicts it, and five public benchmarks that test it, with paired statistics.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/page.css">
+<style>table.res td.neg{color:#9A5B5B}table.res td.pos{color:#4F6B48}</style>
+</head>
+<body>
+
+<nav id="nav"><div class="wrap grid">
+  <a class="who" href="../">Ramanjit Singh</a>
+  <div class="links"><a href="../#research">Investigations</a><a href="../01/">01</a><a href="../02/">02</a><a href="../03/">03</a><a href="../04/">04</a><a href="../#systems">Systems</a><a href="../#about">About</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="../assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
+  <span class="rev mono">investigation 04</span>
+</div></nav>
+
+<header class="top"><div class="wrap grid">
+  <div class="kicker mono"><span class="tick"></span>Investigation 04 · Hybrid search</div>
+  <h1>When does mixing keyword and meaning search help?</h1>
+  <p class="abstract">Luna remembers a founder's work by searching it two ways at once, by exact words and by meaning, and mixing the results. Mixing is widely assumed to help. On five public benchmarks it often does not. The most common recipe, reciprocal rank fusion, makes results worse than meaning search alone on three of five. A weighted mix, with the weight learned on held-out queries, is never significantly worse and is significantly better on three. A two-signal model from detection theory predicts which way an equal mix will go from three numbers per dataset.</p>
+  <div class="side">
+    <div class="status mono"><i></i>in progress · milestone 1 complete</div>
+    <div class="datanote"><b>Data.</b> Five datasets from the public BEIR benchmark<sup class="r"><a href="#refs">[1]</a></sup>, with expert relevance labels. Meaning search uses the open bge-small model on the laptop GPU. No Luna user data is used.</div>
+    <dl class="meta">
+      <dt>language</dt><dd>Python · PyTorch, SciPy</dd>
+      <dt>documents</dt><dd id="m-docs">·</dd>
+      <dt>test queries</dt><dd id="m-q">·</dd>
+      <dt>code</dt><dd><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io/tree/main/investigations/04-retrieval-fusion">investigations/04-retrieval-fusion</a></dd>
+    </dl>
+  </div>
+</div></header>
+
+<main><div class="wrap grid">
+  <aside class="toc"><ol id="toc">
+    <li><a href="#s1"><span>1</span>The question</a></li>
+    <li><a href="#s2"><span>2</span>Two ways to search</a></li>
+    <li><a href="#s3"><span>3</span>When mixing should help</a></li>
+    <li><a href="#s4"><span>4</span>What mixing does</a></li>
+    <li><a href="#s5"><span>5</span>The weight is the method</a></li>
+    <li><a href="#s6"><span>6</span>Does the model predict it</a></li>
+    <li><a href="#s7"><span>7</span>What carries back to Luna</a></li>
+    <li><a href="#s8"><span>8</span>Reproduce</a></li>
+    <li><a href="#refs"><span>·</span>References</a></li>
+  </ol></aside>
+
+  <article>
+
+  <section id="s1">
+    <h2><span class="n">§1</span>The question</h2>
+    <p class="lead">Keyword search finds documents that share the query's words. Meaning search finds documents that say the same thing in other words. Each fails where the other succeeds, so mixing them sounds like a free improvement.</p>
+    <p>Luna's memory works this way. When a founder asks about "the pricing call with the Pune distributor", keyword search catches the exact name and meaning search catches the notes that never used the word "pricing". Many products mix the two with a fixed recipe and never measure whether the mix beats its better half. This page measures it, asks when it should help, and tests a model that answers in advance.</p>
+  </section>
+
+  <section id="s2">
+    <h2><span class="n">§2</span>Two ways to search</h2>
+    <p><b>Keyword search</b> is BM25<sup class="r"><a href="#refs">[2]</a></sup>, written here from scratch on sparse matrices. A document \(D\) scores, for a query \(Q\),</p>
+    <div class="eq">$$\text{BM25}(D, Q) = \sum_{t \in Q} \log\!\Big(1 + \frac{N - n_t + 0.5}{n_t + 0.5}\Big) \frac{f_{t,D}\,(k_1 + 1)}{f_{t,D} + k_1\big(1 - b + b\,|D| / \overline{|D|}\big)},$$</div>
+    <p>where \(f_{t,D}\) counts term \(t\) in \(D\), \(n_t\) is the number of documents containing it, and \(k_1 = 0.9\), \(b = 0.4\). <b>Meaning search</b> encodes queries and documents with bge-small-en-v1.5<sup class="r"><a href="#refs">[3]</a></sup>, a 33-million-parameter encoder, on the laptop GPU, and scores by cosine similarity.</p>
+    <p>The five datasets cover scientific claims (SciFact), medical questions (NFCorpus), counter-arguments (ArguAna), citation prediction (SCIDOCS) and financial questions (FiQA). Quality is nDCG@10, which rewards placing relevant documents in the top ten, and higher places more. Every comparison is paired by query, with 10,000 bootstrap resamples for intervals, a sign-flip test for p-values, and Holm's correction across the five datasets<sup class="r"><a href="#refs">[7]</a></sup>.</p>
+    <p>Six mixes are compared. <b>Reciprocal rank fusion</b> (RRF) adds \(1/(60 + \text{rank})\) from each list<sup class="r"><a href="#refs">[4]</a></sup>. <b>Min-max</b> rescales each score to \([0,1]\) over its top 1,000 and adds them<sup class="r"><a href="#refs">[5]</a></sup>. <b>z-scores</b> standardise each score, either over a random sample of the corpus or over the top 200 documents where ranking actually happens. Min-max and the top-200 z-score are each run with equal weights and with a weight on keyword search chosen by 5-fold cross-validation over queries. Bruch, Gai and Ingber analyse several of these functions in depth<sup class="r"><a href="#refs">[6]</a></sup>.</p>
+  </section>
+
+  <section id="s3">
+    <h2><span class="n">§3</span>When mixing should help</h2>
+    <p>Signal detection theory<sup class="r"><a href="#refs">[8]</a></sup> gives a simple model. For one query, standardise both scores over the documents that are not relevant, so each has mean 0 and variance 1 there and the two have correlation \(\rho\). Relevant documents sit higher, at \(d_1\) on the keyword score and \(d_2\) on the meaning score. The larger the separation, the better a score ranks.</p>
+    <div class="prop">
+      <div class="h">Proposition 1 · the separation of a mix</div>
+      <p>If both kinds of document are Gaussian with the same covariance \(\Sigma = \begin{pmatrix} 1 & \rho \\ \rho & 1 \end{pmatrix}\), a mix \(w_1 s_1 + w_2 s_2\) has separation \(d(w) = w^\top d / \sqrt{w^\top \Sigma w}\), and the chance that a relevant document outscores a non-relevant one is \(\Phi(d(w)/\sqrt2)\). The best weights are \(w \propto \Sigma^{-1} d\), with</p>
+      <div class="eq">$$d_\ast^2 = \frac{d_1^2 + d_2^2 - 2\rho\, d_1 d_2}{1 - \rho^2}, \qquad d_\ast^2 - d_1^2 = \frac{(d_2 - \rho\, d_1)^2}{1 - \rho^2} \;\ge\; 0 .$$</div>
+      <p>An equal mix has separation \((d_1 + d_2)/\sqrt{2 + 2\rho}\), and beats the stronger score \(d_1 \ge d_2\) only when \(\rho &lt; (d_1 + d_2)^2 / (2 d_1^2) - 1\).</p>
+      <p class="proof"><em>proof</em>The difference of two independent draws, one relevant and one not, is Gaussian with mean \(w^\top d\) and variance \(2 w^\top \Sigma w\), which gives the probability. Maximising \(w^\top d / \sqrt{w^\top \Sigma w}\) is the Cauchy–Schwarz inequality in the inner product defined by \(\Sigma\), with equality at \(w \propto \Sigma^{-1} d\) and maximum \(d^\top \Sigma^{-1} d\), which expands to the first expression. Subtracting \(d_1^2\) and completing the square gives the second. The equal-mix condition is \((d_1 + d_2)^2 / (2 + 2\rho) &gt; d_1^2\), rearranged. ∎</p>
+    </div>
+    <p>Two lessons follow before any data. A correctly weighted mix can never be worse than its better half, and it gains nothing exactly when \(\rho = d_2 / d_1\), when the weaker score adds no information the stronger lacks. An equal mix is different. When one score is much stronger, an equal mix drags it down unless the two are nearly uncorrelated or negatively correlated. Whether mixing helps is a question about \(d_1\), \(d_2\) and \(\rho\), not about the idea of mixing.</p>
+  </section>
+
+  <section id="s4">
+    <h2><span class="n">§4</span>What mixing does</h2>
+    <table class="res" id="maintab"></table>
+    <p class="cap" id="maincap"><b>Table 1.</b> ·</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 1 &nbsp;change in nDCG@10 against meaning search alone, 95% bootstrap interval</span></div>
+      <svg id="forest" viewBox="0 0 860 470" role="img" aria-label="Change in quality for each fusion method on each dataset"></svg>
+      <div class="legend mono" id="forestleg"></div>
+    </div>
+    <p class="cap" id="forestcap"><b>Figure 1.</b> ·</p></div>
+    <p id="s4text">·</p>
+  </section>
+
+  <section id="s5">
+    <h2><span class="n">§5</span>The weight is the method</h2>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 2 &nbsp;nDCG@10 against the weight on keyword search, top-200 z-scores</span></div>
+      <svg id="alpha" viewBox="0 0 860 320" role="img" aria-label="Quality against fusion weight"></svg>
+      <div class="legend mono" id="alphaleg"></div>
+    </div>
+    <p class="cap" id="alphacap"><b>Figure 2.</b> ·</p></div>
+    <p id="s5text">·</p>
+  </section>
+
+  <section id="s6">
+    <h2><span class="n">§6</span>Does the model predict it</h2>
+    <p>For each query I measured \(d_1\), \(d_2\) and \(\rho\) among the non-relevant documents in the top 200, standardised there, and used Proposition 1 to predict how well an equal mix separates relevant from non-relevant documents. The prediction uses only the two separate scores. The mix itself is then measured.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 3 &nbsp;predicted against measured separation of an equal mix, one point per query</span></div>
+      <svg id="scat" viewBox="0 0 860 420" role="img" aria-label="Predicted against measured AUC"></svg>
+      <div class="legend mono" id="scatleg"></div>
+    </div>
+    <p class="cap" id="scatcap"><b>Figure 3.</b> ·</p></div>
+    <table class="res" id="thtab"></table>
+    <p class="cap"><b>Table 2.</b> Medians over queries for \(d_1\), \(d_2\) and \(\rho\). The separation columns give the change in AUC, relevant against non-relevant documents in the top 200, from the stronger score alone to the equal mix. The last two columns compare the model's best keyword weight with the weights chosen by cross-validation in the five folds.</p>
+    <p id="s6text">·</p>
+  </section>
+
+  <section id="s7">
+    <h2><span class="n">§7</span>What carries back to Luna</h2>
+    <p id="s7text">·</p>
+    <p>The next milestone tests the model where it matters most for a product, on queries that look like a founder's. I will build a small labelled set of realistic work questions over a synthetic company archive, and check whether \(d_1\), \(d_2\) and \(\rho\) measured on a handful of labelled queries are enough to choose the weight for the rest.</p>
+  </section>
+
+  <section id="s8">
+    <h2><span class="n">§8</span>Reproduce</h2>
+<pre><span class="c"># download scifact, nfcorpus, arguana, scidocs and fiqa from the BEIR site into data/raw/ and unzip</span>
+cd investigations/04-retrieval-fusion
+pip install torch sentence-transformers scipy scikit-learn
+python run_fusion.py        <span class="c"># every number on this page, results/milestone1.json, about 3 minutes once embeddings are cached</span>
+python export_site_data.py  <span class="c"># site/data/inv04.json</span></pre>
+    <p>The datasets carry their own licences and are not redistributed here. Encoding all 100,785 documents and scoring the first run takes about five minutes on the RTX 3050 laptop GPU.</p>
+  </section>
+
+  <section id="refs">
+    <h2><span class="n">·</span>References</h2>
+    <ol class="refs">
+      <li><span><i>N. Thakur, N. Reimers, A. Rücklé, A. Srivastava, I. Gurevych.</i> BEIR: a heterogeneous benchmark for zero-shot evaluation of information retrieval models. NeurIPS Datasets and Benchmarks 2021.</span></li>
+      <li><span><i>S. Robertson, H. Zaragoza.</i> The probabilistic relevance framework: BM25 and beyond. Foundations and Trends in Information Retrieval 3(4), 333–389, 2009.</span></li>
+      <li><span><i>S. Xiao, Z. Liu, P. Zhang, N. Muennighoff, D. Lian, J.-Y. Nie.</i> C-Pack: packed resources for general Chinese embeddings. arXiv:2309.07597, 2023. Source of the bge models.</span></li>
+      <li><span><i>G. V. Cormack, C. L. A. Clarke, S. Büttcher.</i> Reciprocal rank fusion outperforms Condorcet and individual rank learning methods. SIGIR 2009, 758–759.</span></li>
+      <li><span><i>E. A. Fox, J. A. Shaw.</i> Combination of multiple searches. TREC-2, NIST Special Publication 500-215, 243–252, 1994.</span></li>
+      <li><span><i>S. Bruch, S. Gai, A. Ingber.</i> An analysis of fusion functions for hybrid retrieval. ACM Transactions on Information Systems 42(1), 1–35, 2023.</span></li>
+      <li><span><i>S. Holm.</i> A simple sequentially rejective multiple test procedure. Scandinavian Journal of Statistics 6(2), 65–70, 1979.</span></li>
+      <li><span><i>D. M. Green, J. A. Swets.</i> Signal Detection Theory and Psychophysics. Wiley, 1966.</span></li>
+    </ol>
+  </section>
+
+  </article>
+</div></main>
+
+<footer><div class="wrap grid mono">
+  <span class="c1">Ramanjit Singh · Phagwara, Punjab</span>
+  <span class="c2"><a href="mailto:hackit830@gmail.com">hackit830@gmail.com</a> · <a href="https://www.linkedin.com/in/ramanjitsingh1">linkedin.com/in/ramanjitsingh1</a> · <a href="https://github.com/ramanjitsingh-hub">github</a></span>
+  <span class="c3">Every figure is computed, none is drawn.</span>
+</div></footer>
+
+<script src="../assets/navmenu.js"></script>
+<script src="../assets/plot.js"></script>
+<script>
+let D = null;
+const $ = id => document.getElementById(id);
+const NAMES = { scifact: "SciFact", nfcorpus: "NFCorpus", arguana: "ArguAna", scidocs: "SCIDOCS", fiqa: "FiQA" };
+const SYS = ["RRF", "min-max, equal", "min-max, tuned", "z over corpus, equal", "z over top 200, equal", "z over top 200, tuned"];
+const SCOL = { "RRF": "#9A5B5B", "min-max, equal": "#9FBCD6", "min-max, tuned": "#6F95BA", "z over corpus, equal": "#C9A27E", "z over top 200, equal": "#9D93C8", "z over top 200, tuned": "#1D1E20" };
+const DCOL = { scifact: "#6F64A8", nfcorpus: "#6E8565", arguana: "#6F95BA", scidocs: "#C9A27E", fiqa: "#1D1E20" };
+const sg = v => (v >= 0 ? "+" : "−") + Math.abs(100 * v).toFixed(1);
+const W = ["none", "one", "two", "three", "four", "five"];
+const nds = k => k === 1 ? "one dataset" : ["no datasets", "", "two datasets", "three datasets", "four datasets", "all five datasets"][k];
+const range = vals => { const s = vals.slice().sort((a, b) => a - b); return [s[0], s[s.length - 1]]; };
+
+function drawMain() {
+  const ds = Object.keys(D.datasets), all = ["BM25", "dense", ...SYS];
+  let h = "<tr><th>method</th>" + ds.map(n => `<th>${NAMES[n]}</th>`).join("") + "</tr>";
+  all.forEach(s => { h += `<tr><td>${s === "dense" ? "meaning search" : s === "BM25" ? "keyword search (BM25)" : s}</td>` + ds.map(n => { const d = D.datasets[n], v = d.ndcg10[s];
+    if (s === "BM25" || s === "dense") return `<td>${v.toFixed(3)}</td>`;
+    const c = d.vs_best_single[s], sig = c.p_holm < 0.05; return `<td class="${sig ? (c.mean > 0 ? "pos" : "neg") : ""}">${v.toFixed(3)}</td>`; }).join("") + "</tr>"; });
+  $("maintab").innerHTML = h;
+  const g = range(ds.map(n => 100 * D.datasets[n].dense_vs_bm25.mean));
+  $("maincap").innerHTML = `<b>Table 1.</b> nDCG@10 on the test queries. Green and red mark a mix that is significantly better or worse than meaning search alone after Holm's correction at 5%. Meaning search beats keyword search on all five, by ${g[0].toFixed(1)} to ${g[1].toFixed(1)} points.`;
+}
+
+function drawForest() {
+  const svg = $("forest"); svg.innerHTML = "";
+  const ds = Object.keys(D.datasets), L = 120, W = 860, R = 20, top = 14, gh = 84, x0 = -0.12, x1 = 0.06;
+  const sx = v => L + (Math.max(x0, Math.min(x1, v)) - x0) / (x1 - x0) * (W - L - R);
+  const yEnd = top + ds.length * gh;
+  [-0.1, -0.08, -0.06, -0.04, -0.02, 0, 0.02, 0.04, 0.06].forEach(v => { mk(svg, "line", { x1: sx(v), x2: sx(v), y1: top - 4, y2: yEnd, stroke: v === 0 ? C.graphite : C.stone });
+    txt(svg, sx(v), yEnd + 16, (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(100 * v).toFixed(0), { "text-anchor": "middle" }); });
+  txt(svg, W - R, yEnd + 34, "points of nDCG@10 relative to meaning search alone", { "text-anchor": "end" });
+  ds.forEach((n, i) => { const y0 = top + i * gh;
+    txt(svg, L - 14, y0 + gh / 2, NAMES[n], { "text-anchor": "end", fill: C.ink });
+    SYS.forEach((s, j) => { const c = D.datasets[n].vs_best_single[s], y = y0 + 8 + j * 12;
+      mk(svg, "line", { x1: sx(c.lo), x2: sx(c.hi), y1: y, y2: y, stroke: SCOL[s], "stroke-width": 2 });
+      mk(svg, "circle", { cx: sx(c.mean), cy: y, r: 3.4, fill: SCOL[s] }); }); });
+  $("forestleg").innerHTML = SYS.map(s => `<span><i class="sw" style="background:${SCOL[s]}"></i>${s}</span>`).join("");
+  $("forestcap").innerHTML = `<b>Figure 1.</b> Paired over queries, 10,000 bootstrap resamples. Right of the line is better than meaning search alone. Intervals that leave the plot are clipped.`;
+  const cnt = (s, f) => ds.filter(n => f(D.datasets[n].vs_best_single[s])).length;
+  const worseSig = s => cnt(s, c => c.p_holm < 0.05 && c.mean < 0), betterSig = s => cnt(s, c => c.p_holm < 0.05 && c.mean > 0);
+  const worst = s => Math.min(...ds.map(n => D.datasets[n].vs_best_single[s].mean));
+  const tuned = "z over top 200, tuned";
+  const sigT = ds.filter(n => D.datasets[n].vs_best_single[tuned].p_holm < 0.05);
+  const g = range(ds.map(n => 100 * D.datasets[n].dense_vs_bm25.mean));
+  $("s4text").innerHTML = `The common recipe does not deliver. Reciprocal rank fusion is significantly worse than meaning search alone on ${W[worseSig("RRF")]} of five datasets and significantly better on ${betterSig("RRF") ? W[betterSig("RRF")] : "none"}, losing up to ${(-100 * worst("RRF")).toFixed(1)} points. Equal-weight mixes do little better, significantly worse on ${nds(worseSig("min-max, equal"))} with min-max scaling and on ${nds(worseSig("z over top 200, equal"))} with top-200 z-scores. How the scores are put on a common scale matters as much as how they are added. Standardising over a random sample of the corpus is the worst choice here, losing up to ${(-100 * worst("z over corpus, equal")).toFixed(1)} points. Most documents share no word with the query and score exactly zero, so the keyword scores of the few that do become enormous after standardising and swamp the meaning scores.<br><br>A learned weight changes the picture. The top-200 z-score mix with its weight chosen by cross-validation is never significantly worse than meaning search alone and is significantly better on ${W[sigT.length]} of five, by ${sigT.map(n => sg(D.datasets[n].vs_best_single[tuned].mean) + " on " + NAMES[n]).join(", ")} points. The gains are real but small, against a gap of ${g[0].toFixed(0)} to ${g[1].toFixed(0)} points between keyword and meaning search.`;
+}
+
+function drawAlpha() {
+  const svg = $("alpha"); svg.innerHTML = "";
+  const ds = Object.keys(D.datasets);
+  const a = axes(svg, { W: 860, H: 320, L: 50, R: 96, T: 20, B: 32, x0: 0, x1: 1, y0: 0.1, y1: 0.8, xt: [0, 0.2, 0.4, 0.6, 0.8, 1],
+    yt: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8], xl: "weight on keyword search", yl: "nDCG@10" });
+  const al = Array.from({ length: 21 }, (_, i) => i / 20);
+  ds.forEach(n => { const c = D.datasets[n].alpha_curve_z, best = c.indexOf(Math.max(...c));
+    mk(svg, "path", { d: poly(c.map((v, i) => [a.sx(al[i]), a.sy(v)])), fill: "none", stroke: DCOL[n], "stroke-width": 1.6 });
+    mk(svg, "circle", { cx: a.sx(al[best]), cy: a.sy(c[best]), r: 4, fill: DCOL[n] });
+    txt(svg, a.sx(1) + 8, a.sy(c[20]) + 4, NAMES[n], { fill: DCOL[n] }); });
+  $("alphaleg").innerHTML = "<span>0 is meaning search alone, 1 is keyword search alone</span><span>dots: best weight on all test queries</span>";
+  const ch = ds.map(n => D.datasets[n].alpha_chosen_z).flat(), lo = Math.min(...ch), hi = Math.max(...ch);
+  $("alphacap").innerHTML = `<b>Figure 2.</b> Mean over test queries at each weight. Cross-validation, which never sees the held-out fold, chooses weights from ${lo} to ${hi} on keyword search.`;
+  $("s5text").innerHTML = `Every curve rises from the left edge and then falls, so on every dataset a little keyword search helps and too much hurts. The best share is small, between ${lo} and ${hi}, because meaning search is the stronger signal everywhere here. An equal mix sits at 0.5, to the right of every peak, which is why equal mixes lost in Section 4. The weight is not a detail of the method. It is the method.`;
+}
+
+function drawScat() {
+  const svg = $("scat"); svg.innerHTML = "";
+  const ds = Object.keys(D.datasets);
+  const a = axes(svg, { W: 860, H: 420, L: 56, R: 20, T: 20, B: 34, x0: 0, x1: 1, y0: 0, y1: 1, xt: [0, 0.2, 0.4, 0.6, 0.8, 1], yt: [0, 0.2, 0.4, 0.6, 0.8, 1], xl: "predicted by Proposition 1", yl: "measured" });
+  mk(svg, "line", { x1: a.sx(0), x2: a.sx(1), y1: a.sy(0), y2: a.sy(1), stroke: C.rule, "stroke-width": 1.2 });
+  ds.forEach(n => D.datasets[n].theory.scatter.forEach(([p, m]) => mk(svg, "circle", { cx: a.sx(p), cy: a.sy(m), r: 1.9, fill: DCOL[n], opacity: .5 })));
+  $("scatleg").innerHTML = ds.map(n => `<span><i class="sw" style="background:${DCOL[n]}"></i>${NAMES[n]} · r = ${D.datasets[n].theory.per_query_pred_vs_meas.corr.toFixed(2)}</span>`).join("");
+  $("scatcap").innerHTML = `<b>Figure 3.</b> Up to 400 queries per dataset. The quantity is the probability that a relevant document outscores a non-relevant one in the top 200, for the equal mix of top-200 z-scores. r is the correlation between prediction and measurement over all of a dataset's queries.`;
+  let h = "<tr><th>dataset</th><th>d₁ keyword</th><th>d₂ meaning</th><th>ρ</th><th>separation change, predicted</th><th>measured</th><th>nDCG@10 change, equal mix</th><th>best keyword weight, model</th><th>chosen by CV</th></tr>";
+  let agreeAuc = 0, agreeNdcg = 0;
+  ds.forEach(n => { const t = D.datasets[n].theory, g = D.datasets[n].vs_best_single["z over top 200, equal"].mean, ch = D.datasets[n].alpha_chosen_z;
+    const pa = t.auc_gain_equal_vs_best_pred, ma = t.auc_gain_equal_vs_best_meas;
+    agreeAuc += Math.sign(pa) === Math.sign(ma); agreeNdcg += Math.sign(pa) === Math.sign(g);
+    const wo = (t.d1 > 0 && t.d2 > 0) ? t.w_opt_bm25.toFixed(2) : "·";
+    h += `<tr><td>${NAMES[n]}</td><td>${t.d1.toFixed(2)}</td><td>${t.d2.toFixed(2)}</td><td>${t.rho_median.toFixed(2)}</td><td>${sg(pa)} pts</td><td>${sg(ma)} pts</td><td class="${Math.sign(pa) === Math.sign(g) ? "" : "neg"}">${sg(g)} pts</td><td>${wo}</td><td>${Math.min(...ch)} to ${Math.max(...ch)}</td></tr>`; });
+  $("thtab").innerHTML = h;
+  const rr = range(ds.map(n => D.datasets[n].theory.per_query_pred_vs_meas.corr));
+  $("s6text").innerHTML = `Query by query the model works well. Predicted and measured separation correlate at ${rr[0].toFixed(2)} to ${rr[1].toFixed(2)} within each dataset. At the level of datasets it gets the direction right. It predicts whether an equal mix separates better or worse than the stronger score on ${agreeAuc === 5 ? "all five" : W[agreeAuc] + " of five"} datasets, and whether it raises or lowers nDCG@10 on ${agreeNdcg === 5 ? "all five" : W[agreeNdcg] + " of five"}. The miss is NFCorpus, where queries have dozens of relevant documents and many sit far below the top 200, so separation over all of them says little about the top ten.<br><br>The model is weaker on the best weight. Where both median separations are positive it ranks ArguAna lowest, as cross-validation does, but it suggests more keyword weight than cross-validation chooses on all three. Where a median separation is negative, as on NFCorpus and SCIDOCS, the formula has no meaning. Real score distributions have heavy upper tails that a Gaussian misses, and nDCG@10 is decided in that tail. The model is accurate about the average document and rough about the top ten.<br><br>Measured over a random sample of the corpus instead of the top 200, the same model fails completely, because keyword scores there are almost all zero and the Gaussian picture does not apply. Where a model is fitted decides whether it means anything.`;
+  $("s7text").innerHTML = `Three things carry over to Luna's memory search. A fixed recipe such as reciprocal rank fusion should not be trusted without measurement, since it lost to meaning search alone on most of these benchmarks. The weight on keyword search should be learned from labelled examples of the product's own queries, and on this evidence it will be small, though worth keeping. And the diagnostic of Proposition 1, the two separations and their correlation measured among top results, can say in advance whether an equal mix will help, from a handful of labelled queries and without running the mix.`;
+}
+
+fetch("../data/inv04.json", { cache: "no-cache" }).then(r => r.json()).then(d => {
+  D = d; const ds = Object.values(d.datasets);
+  $("m-docs").textContent = ds.reduce((a, b) => a + b.n_docs, 0).toLocaleString();
+  $("m-q").textContent = ds.reduce((a, b) => a + b.n_queries, 0).toLocaleString();
+  drawMain(); drawForest(); drawAlpha(); drawScat();
+});
+document.addEventListener("DOMContentLoaded", () => {
+  const go = () => window.renderMathInElement ? renderMathInElement(document.body, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "\\(", right: "\\)", display: false }] }) : setTimeout(go, 50); go();
+});
+addEventListener("scroll", () => $("nav").classList.toggle("solid", scrollY > 20), { passive: true });
+const links = [...document.querySelectorAll("#toc a")];
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle("on", l.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "-40% 0px -55% 0px" });
+document.querySelectorAll("article section").forEach(s => io.observe(s));
+</script>
+</body>
+</html>

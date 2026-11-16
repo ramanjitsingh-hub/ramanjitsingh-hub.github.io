@@ -354,9 +354,24 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
     </div>
   </div>
 
-  <div class="prop">
-    <div class="h">next questions</div>
-    <div class="row"><span class="k">04</span><h4>When does mixing keyword and meaning search help?</h4><p>Rank fusion behind Luna's memory search, tested with paired statistics on public benchmarks.</p><span class="tag mono">proposed</span></div>
+  <div class="inv">
+    <div class="text">
+      <div class="num">04</div>
+      <h3>When does mixing keyword and meaning search help?</h3>
+      <div class="status mono"><i></i>in progress · milestone 1 complete</div>
+      <p class="plain">Luna's memory searches a founder's work two ways at once, by exact words and by meaning, and mixes the results. On five public benchmarks the most popular way of mixing made results worse than meaning search alone on three. A mix with a learned weight was never significantly worse and was significantly better on three. A small model from detection theory predicts in advance which way an equal mix will go.</p>
+      <p class="techline">BM25 written from scratch, a sentence-embedding model on the laptop GPU, six fusion methods with paired bootstrap tests and Holm's correction, and a Gaussian two-signal model tested query by query.</p>
+      <p class="mono" style="margin-top:12px;font-size:11px">Public benchmark data. No Luna user data is used.</p>
+      <a class="more" href="04/">Read investigation 04 →</a>
+    </div>
+    <div class="side">
+      <div class="bignum">
+        <div><b>3 of 5</b><span>benchmarks where the popular fusion recipe lost to meaning search alone</span></div>
+        <div><b>0.05–0.4</b><span>the weight keyword search should get, learned from held-out queries</span></div>
+        <div><b>0.79–0.97</b><span>correlation between the model's predictions and measurements, query by query</span></div>
+        <div><b>100,785</b><span>documents searched, embedded on a 4 GB laptop GPU</span></div>
+      </div>
+    </div>
   </div>
 
   <div class="prop" id="systems">
