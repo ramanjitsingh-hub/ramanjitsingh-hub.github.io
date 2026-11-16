@@ -8,3 +8,4 @@ investigations/02-gpu-navier-stokes/bin/
 *.lib
 *.pdb
 investigations/03-gpu-anatomy/bin/
+investigations/04-model-routing/data/raw/

@@ -122,7 +122,7 @@ section.s{padding:120px 0 20px}
 .row{display:grid;grid-template-columns:56px minmax(0,1fr) minmax(0,1.2fr) 100px;column-gap:24px;padding:20px 0;border-top:1px solid var(--rule);align-items:baseline}
 .row:last-child{border-bottom:1px solid var(--rule)}
 .row .k{font-weight:300;font-size:24px;letter-spacing:-.04em;color:var(--faint)}
-.row h4{font-weight:400;font-size:17px}
+.row h4{font-weight:400;font-size:17px}.row h4 a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}.row h4 a:hover{border-bottom-color:var(--charcoal)}
 .row p{font-size:14.5px;color:var(--graphite)}
 .row .tag{text-align:right}
 
@@ -199,8 +199,8 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
 
 <nav id="nav"><div class="wrap grid">
   <a class="who" href="#">Ramanjit Singh</a>
-  <div class="links"><a href="#work">Work</a><a href="#research">Research</a><a href="#live">Live demo</a><a href="#contact">Contact</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
-  <span class="rev mono">rev. 2026.11.15</span>
+  <div class="links"><a href="#work">Work</a><a href="#research">Research</a><a href="#systems">Systems</a><a href="#live">Live demo</a><a href="#contact">Contact</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
+  <span class="rev mono">rev. 2026.11.16</span>
 </div></nav>
 
 <header class="about" id="about"><div class="wrap grid">
@@ -209,7 +209,7 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
     <h1 style="margin-top:26px">Hi, I'm Ramanjit. <span>I build products, and I study the mathematics underneath them.</span></h1>
     <div class="intro">
       <p>I co-founded FemoraAI, a women's health app used by more than 4,600 people, and now Luna, an AI executive assistant for founders. I got my first laptop at six, broke it, and fixed it before anyone noticed. I have been taking systems apart ever since.</p>
-      <p>Today I work on software that has to make sense of messy, incomplete information, and on the maths and hardware that make it fast and trustworthy.</p>
+      <p>Today I study how software should make decisions from small, noisy data, using statistics and machine learning, and how far each of its predictions can be trusted.</p>
     </div>
     <div class="cta"><a href="#work">What I've built</a><a href="#research">My research</a><a class="soft" href="#live">See something live</a><a href="assets/Ramanjit_Singh_CV.pdf" download>Download CV</a></div>
   </div>
@@ -237,11 +237,11 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
 <section class="s" style="padding-top:60px"><div class="wrap grid">
   <div class="ruler"></div>
   <div class="label"><div class="n">§1</div><h2>What I do</h2><div class="margin-fig" data-glyph="cobweb"></div></div>
-  <p class="lead">Three things, and they feed each other. <span>Building shows me which problems matter. Research tells me why my first answer was wrong. Engineering makes the better answer fast enough to use.</span></p>
+  <p class="lead">Three things, and they feed each other. <span>Building shows me which problems matter. Research tells me why my first answer was wrong. Engineering puts the better answer in front of real users.</span></p>
   <div class="doing">
     <a href="#work"><span class="cardglyph" data-glyph="ventures"></span><span class="k">build</span><h3>I start companies</h3><p>Three so far, from a campus delivery service to an AI assistant, each one taught by real users.</p><span class="go">My work ↓</span></a>
     <a href="#research"><span class="cardglyph" data-glyph="gauss"></span><span class="k">research</span><h3>I test my own systems</h3><p>I take things I have built apart mathematically, and report what I measured, including what didn't work.</p><span class="go">Research ↓</span></a>
-    <a href="#live"><span class="cardglyph" data-glyph="stencil"></span><span class="k">engineer</span><h3>I make it run fast</h3><p>I write code for graphics cards and measure every millisecond. One of those programs is running further down this page.</p><span class="go">Live demo ↓</span></a>
+    <a href="#work"><span class="cardglyph" data-glyph="stencil"></span><span class="k">engineer</span><h3>I build AI systems</h3><p>Agents, memory search and model routing for real users, and then I measure how well they actually decide.</p><span class="go">My work ↓</span></a>
   </div>
 </div></section>
 
@@ -283,7 +283,7 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
 <section class="s" id="research"><div class="wrap grid">
   <div class="ruler"></div>
   <div class="label"><div class="n">§4</div><h2>Research</h2><div class="margin-fig" data-glyph="posterior"></div></div>
-  <p class="lead">Alongside building, I run investigations. <span>I pick one question, work out the maths, write the code from scratch, and publish what I measured. Status labels are literal.</span></p>
+  <p class="lead">Each investigation starts from a decision one of my products makes. <span>I state the question, work out the mathematics, write the code from scratch, and publish what I measured, including what did not go my way. Status labels are literal.</span></p>
 
   <div class="inv">
     <div class="text">
@@ -316,46 +316,35 @@ nav .menu{display:none;justify-self:end;font-size:12px;letter-spacing:.04em;back
 
   <div class="inv">
     <div class="text">
-      <div class="num">02</div>
-      <h3>How fast can a laptop simulate a fluid, and still be right?</h3>
-      <div class="status mono"><i></i>in progress · four milestones complete</div>
-      <p class="plain">I wrote a program that simulates how fluids move, from scratch, for a laptop graphics card. First I proved it gives the right answer against known solutions. Then I found where its time went and made it much faster without changing a single digit of the result.</p>
-      <p class="techline">CUDA Navier–Stokes solver, multigrid pressure solve, mixed precision, shared-memory smoother, validated on the lid-driven cavity.</p>
-      <a class="more" href="02/">Read investigation 02 →</a>
+      <div class="num">04</div>
+      <h3>When is a cheap AI model good enough?</h3>
+      <div class="status mono"><i></i>in progress · milestone 1 complete</div>
+      <p class="plain">Luna sends each request to the cheapest AI model that can handle it. I tested that idea on 44,241 questions answered by 13 models, from GPT-4o to small open models. A router that reads the question matches GPT-4o's quality for about a tenth of the cost. Most of that gain comes from recognising the type of task, though, and on a type it has never seen the router does worse than a fixed choice.</p>
+      <p class="techline">Decision theory for routing under a budget, score prediction from text, bootstrap intervals, and a quality guarantee certified with betting martingales.</p>
+      <p class="mono" style="margin-top:12px;font-size:11px">Public benchmark data. No Luna user data is used.</p>
+      <a class="more" href="04/">Read investigation 04 →</a>
     </div>
     <div class="side">
       <div class="bignum">
-        <div><b>13.5×</b><span>faster on small grids after removing waiting time between GPU tasks</span></div>
-        <div><b>10⁻¹⁶</b><span>difference from an independent check, the limit of computer arithmetic</span></div>
-        <div><b>2.000</b><span>measured order of accuracy, exactly what theory predicts</span></div>
-        <div><b>60 fps</b><span>the browser version, running further down this page</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="inv">
-    <div class="text">
-      <div class="num">03</div>
-      <h3>Why is some graphics-card code fast and some slow?</h3>
-      <div class="status mono"><i></i>in progress · two milestones complete</div>
-      <p class="plain">Programmers follow a few rules of thumb for graphics cards. I turned each rule into a formula, built a small test that isolates it, and measured. Most rules hold to within a few percent. Where one did not, I designed a second experiment to find out why, and found things like a hidden 16-entry address cache inside the chip.</p>
-      <p class="techline">Microbenchmarks with stated models: memory latency, Little's law, coalescing, the roofline, warp divergence, shared-memory banks and address translation, cross-checked with hardware counters.</p>
-      <a class="more" href="03/">Read investigation 03 →</a>
-    </div>
-    <div class="side">
-      <div class="bignum">
-        <div><b id="i3-n">328</b><span>measured configurations, each tested against a model written down first</span></div>
-        <div><b>0.5%</b><span>largest error of the divergence model over 16 cases</span></div>
-        <div><b>16 × 2 MB</b><span>a hidden address cache, measured from outside the chip</span></div>
-        <div><b>16 / 19</b><span>cycles the double-precision unit is busy per instruction, which explains a missing 16%</span></div>
+        <div><b>10%</b><span>of GPT-4o's cost to match its quality, by reading the question first</span></div>
+        <div><b>13 × 44k</b><span>models and questions, every model answering every question</span></div>
+        <div><b>43 → 4%</b><span>how often a quality promise failed, picked by eye and then certified</span></div>
+        <div><b>6 of 6</b><span>unseen task types where the router fell below a fixed model</span></div>
       </div>
     </div>
   </div>
 
   <div class="prop">
     <div class="h">next questions</div>
-    <div class="row"><span class="k">04</span><h4>Can neural networks replace physics solvers?</h4><p>A fair test of neural operators against the solver from 02, counting training cost too.</p><span class="tag mono">proposed</span></div>
-    <div class="row"><span class="k">05</span><h4>The shape of learning</h4><p>Measuring the landscape a neural network moves through while it trains.</p><span class="tag mono">proposed</span></div>
+    <div class="row"><span class="k">05</span><h4>What can a startup learn from fifty users?</h4><p>How wide the honest uncertainty is around retention and conversion at early-stage scale, and how to report it.</p><span class="tag mono">proposed</span></div>
+    <div class="row"><span class="k">01</span><h4>Prediction ranges with a guarantee</h4><p>Conformal prediction for the cycle predictor, so that an "80% range" holds 80% of the time by proof.</p><span class="tag mono">next milestone</span></div>
+    <div class="row"><span class="k">06</span><h4>When does mixing keyword and meaning search help?</h4><p>Rank fusion behind Luna's memory search, tested with paired statistics on public benchmarks.</p><span class="tag mono">proposed</span></div>
+  </div>
+
+  <div class="prop" id="systems">
+    <div class="h">systems · earlier investigations on GPU computing</div>
+    <div class="row"><span class="k">02</span><h4><a href="02/">A fluid simulator for a laptop GPU</a></h4><p>A Navier–Stokes solver written from scratch in CUDA, verified to 10⁻¹⁶ and made 13.5× faster on small grids. It runs live further down this page.</p><span class="tag mono">4 milestones</span></div>
+    <div class="row"><span class="k">03</span><h4><a href="03/">The anatomy of a graphics card</a></h4><p>328 measured configurations, each tested against a model written down first, including a hidden 16-entry address cache.</p><span class="tag mono">2 milestones</span></div>
   </div>
 </div></section>
 
