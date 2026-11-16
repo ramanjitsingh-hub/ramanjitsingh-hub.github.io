@@ -1,3 +1,317 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Moved</title>
-<meta http-equiv="refresh" content="0; url=../s2/"><link rel="canonical" href="../s2/"></head>
-<body style="font-family:sans-serif;background:#F6F4EF;color:#1D1E20;padding:40px">This page moved to <a href="../s2/">/s2/</a>.</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fifty Users</title>
+<meta name="description" content="Investigation 03. What a startup can and cannot learn from small numbers of users: interval coverage, cohort noise, empirical Bayes, the peeking problem and always-valid tests, checked against a real customer base.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/page.css">
+<style>table.res td.neg{color:#9A5B5B}</style>
+</head>
+<body>
+
+<nav id="nav"><div class="wrap grid">
+  <a class="who" href="../">Ramanjit Singh</a>
+  <div class="links"><a href="../#research">Investigations</a><a href="../01/">01</a><a href="../02/">02</a><a href="../03/">03</a><a href="../#systems">Systems</a><a href="../#about">About</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="../assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
+  <span class="rev mono">investigation 03</span>
+</div></nav>
+
+<header class="top"><div class="wrap grid">
+  <div class="kicker mono"><span class="tick"></span>Investigation 03 · Startup statistics</div>
+  <h1>What can a startup learn from fifty users?</h1>
+  <p class="abstract">At FemoraAI I read retention numbers every week, for cohorts of a few hundred new users. Founders decide on numbers like these all the time. This investigation measures what they can support. The whole customer base of a real retailer serves as the truth, and startup-sized samples are drawn from it. With 50 users a retention rate is known only to about ±11 points, a founder who checks a test every day finds a false winner 42% of the time, and two simple tools, shrinkage and always-valid tests, recover much of what the small numbers lose.</p>
+  <div class="side">
+    <div class="status mono"><i></i>in progress · milestone 1 complete</div>
+    <div class="datanote"><b>Data.</b> Online Retail II, the transactions of a UK online retailer from December 2009 to December 2011, public under CC BY 4.0<sup class="r"><a href="#refs">[1]</a></sup>. A repeat purchase stands in for an active user. No FemoraAI user data is used.</div>
+    <dl class="meta">
+      <dt>language</dt><dd>Python · NumPy, SciPy</dd>
+      <dt>customers</dt><dd id="m-cust">·</dd>
+      <dt>cohorts</dt><dd>22 monthly cohorts of new customers</dd>
+      <dt>code</dt><dd><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io/tree/main/investigations/03-startup-statistics">investigations/03-startup-statistics</a></dd>
+    </dl>
+  </div>
+</div></header>
+
+<main><div class="wrap grid">
+  <aside class="toc"><ol id="toc">
+    <li><a href="#s1"><span>1</span>The question</a></li>
+    <li><a href="#s2"><span>2</span>A customer base as the truth</a></li>
+    <li><a href="#s3"><span>3</span>How wide is fifty users</a></li>
+    <li><a href="#s4"><span>4</span>Is this month really better</a></li>
+    <li><a href="#s5"><span>5</span>Borrowing strength</a></li>
+    <li><a href="#s6"><span>6</span>The cost of checking every day</a></li>
+    <li><a href="#s7"><span>7</span>How many users a change needs</a></li>
+    <li><a href="#s8"><span>8</span>What a founder should report</a></li>
+    <li><a href="#s9"><span>9</span>Reproduce</a></li>
+    <li><a href="#refs"><span>·</span>References</a></li>
+  </ol></aside>
+
+  <article>
+
+  <section id="s1">
+    <h2><span class="n">§1</span>The question</h2>
+    <p class="lead">An early-stage company runs on small numbers. Thirty sign-ups this week, nine of them still active a month later, a new onboarding flow that "lifted retention by six points".</p>
+    <p>Each of those statements hides a statistical question, and in my experience founders rarely ask it. How sure can thirty users make you? Is this month's cohort better than last month's, or just luckier? If you check an experiment every morning and stop when it looks good, how often are you fooling yourself? And what is the cheapest honest way to report a number?</p>
+    <p>These questions have textbook answers. The textbook assumes things a startup cannot check, so this page tests each answer on real behaviour. Real users arrive in uneven monthly cohorts, behave differently in different months, and do not come from any formula. The truth is known because the whole customer base is in the data, and every small sample is drawn from it.</p>
+  </section>
+
+  <section id="s2">
+    <h2><span class="n">§2</span>A customer base as the truth</h2>
+    <p>The data holds every purchase of a UK online gift retailer over 25 months, about a million lines. After removing cancellations and purchases with no customer identifier, each customer is placed in the cohort of the calendar month of their first purchase. The first month of data is dropped, because its "new" customers include everyone who had bought before the records began. The last two are dropped too, because their following month is incomplete.</p>
+    <p>The metric is <b>next-month retention</b>, the share of a cohort that buys again in the following calendar month. It is the retail version of "still active after four weeks". Across the <span id="npop">·</span> new customers it is <b id="ptrue">·</b>, and that is the number every sample below tries to recover.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 1 &nbsp;next-month retention of each monthly cohort, ±2 standard errors</span></div>
+      <svg id="coh" viewBox="0 0 860 300" role="img" aria-label="Retention by monthly cohort"></svg>
+    </div>
+    <p class="cap" id="cohcap"><b>Figure 1.</b> ·</p></div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="n">§3</span>How wide is fifty users</h2>
+    <p>Draw \(n\) customers at random, count the \(x\) who came back, and report \(\hat p = x/n\) with a 95% interval. The interval most people learn first is Wald's, \(\hat p \pm 1.96\sqrt{\hat p(1-\hat p)/n}\). Brown, Cai and DasGupta showed in 2001 that it behaves badly at small \(n\), and recommended Wilson's interval<sup class="r"><a href="#refs">[2, 3]</a></sup>, which comes from inverting the score test instead of plugging in \(\hat p\),</p>
+    <div class="eq">$$\frac{\hat p + \frac{z^2}{2n} \pm z\sqrt{\frac{\hat p(1-\hat p)}{n} + \frac{z^2}{4n^2}}}{1 + \frac{z^2}{n}} .$$</div>
+    <p>Clopper and Pearson's exact interval<sup class="r"><a href="#refs">[4]</a></sup> and the Bayesian Jeffreys interval are included for comparison. Each interval below was computed on 20,000 random samples at each size, and checked against the true rate.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 2 &nbsp;what a sample of n users says about a true rate of 21%</span></div>
+      <svg id="wid" viewBox="0 0 860 320" role="img" aria-label="Interval width against sample size"></svg>
+      <div class="legend mono"><span><i class="sw" style="background:#9D93C8;opacity:.5"></i>middle 80% of sample estimates</span><span><i class="sw" style="background:#1D1E20"></i>mean Wilson interval</span><span><i class="sw dash"></i>true rate</span></div>
+    </div>
+    <p class="cap" id="widcap"><b>Figure 2.</b> ·</p></div>
+    <table class="res" id="covtab"></table>
+    <p class="cap" id="covcap"><b>Table 1.</b> ·</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 3 &nbsp;exact coverage of four 95% intervals at n = 50, for every true rate</span></div>
+      <svg id="cc" viewBox="0 0 860 300" role="img" aria-label="Coverage against true proportion"></svg>
+      <div class="legend mono" id="ccleg"></div>
+    </div>
+    <p class="cap" id="cccap"><b>Figure 3.</b> ·</p></div>
+    <p id="s3text">·</p>
+  </section>
+
+  <section id="s4">
+    <h2><span class="n">§4</span>Is this month really better</h2>
+    <p>Figure 1 shows retention moving between months. Some of that is sampling noise, since a cohort of 150 is itself a small sample. Some may be real, from seasons, campaigns or a change in who is buying. The two can be separated. If every cohort had the same true rate \(p\), the statistic \(\sum_m (\hat p_m - \bar p)^2 / (\bar p(1-\bar p)/n_m)\) would follow a chi-squared distribution with one less degree of freedom than there are cohorts.</p>
+    <p id="s4text">·</p>
+  </section>
+
+  <section id="s5">
+    <h2><span class="n">§5</span>Borrowing strength</h2>
+    <p>When every cohort is small, each one's raw rate is noisy, but the cohorts together say a lot about what a typical cohort looks like. Empirical Bayes uses that. Treat each cohort's true rate as drawn from a beta distribution, estimate the distribution from all cohorts at once, and report each cohort's posterior mean<sup class="r"><a href="#refs">[5]</a></sup>.</p>
+    <div class="prop">
+      <div class="h">Proposition 1 · shrinkage as a weighted average</div>
+      <p>If \(p_m \sim \text{Beta}(a, b)\) and \(x_m \mid p_m \sim \text{Binomial}(n, p_m)\), the posterior mean is</p>
+      <div class="eq">$$\mathbb E[p_m \mid x_m] = \frac{x_m + a}{n + a + b} = w\,\hat p_m + (1-w)\,\frac{a}{a+b}, \qquad w = \frac{n}{n + a + b},$$</div>
+      <p>so each cohort's estimate moves toward the overall mean by a fraction that shrinks as the cohort grows. Choosing \(a, b\) to match the observed mean \(\bar p\) and the between-cohort variance \(\tau^2\) gives \(a + b = \bar p(1-\bar p)/\tau^2 - 1\).</p>
+      <p class="proof"><em>proof</em>The beta prior is conjugate to the binomial, so the posterior is \(\text{Beta}(a + x_m, b + n - x_m)\), whose mean is the first expression. Rearranging gives the weighted average. A \(\text{Beta}(a,b)\) distribution has mean \(a/(a+b)\) and variance \(\mu(1-\mu)/(a+b+1)\). Setting these equal to \(\bar p\) and \(\tau^2\) gives the last formula. ∎</p>
+    </div>
+    <p>To test it, every cohort of at least 150 customers is cut down to \(n\) random customers, 2,000 times, as if each month had brought only \(n\) users. Each method then estimates every cohort's full rate.</p>
+    <table class="res" id="shrtab"></table>
+    <p class="cap" id="shrcap"><b>Table 2.</b> ·</p>
+    <p id="s5text">·</p>
+  </section>
+
+  <section id="s6">
+    <h2><span class="n">§6</span>The cost of checking every day</h2>
+    <p>A product team ships two onboarding flows to alternate users and watches the dashboard. A z-test at the 5% level is valid if it is run once, at a sample size fixed in advance. Few teams work that way. They look every day and stop when the result is significant.</p>
+    <p>To measure what that costs, I ran A/A tests, where both arms are the same product, so every "significant" result is a false alarm. Customers arrive in their real order, month by month. Each replicate splits them at random into two arms and tests after every 10 users per arm, up to 2,000.</p>
+    <div class="fig wide"><div class="card">
+      <div class="fig-head"><span class="mono">fig. 4 &nbsp;false alarms in identical arms against the number of times the test is checked</span></div>
+      <svg id="peek" viewBox="0 0 860 300" role="img" aria-label="False positive rate against number of looks"></svg>
+    </div>
+    <p class="cap" id="peekcap"><b>Figure 4.</b> ·</p></div>
+    <p>The fix is a test built to be checked at any time. The mixture sequential probability ratio test<sup class="r"><a href="#refs">[6]</a></sup> averages the likelihood ratio over a range of possible effects, an idea that goes back to Robbins<sup class="r"><a href="#refs">[7]</a></sup>, and stops when it passes \(1/\alpha\).</p>
+    <div class="prop">
+      <div class="h">Proposition 2 · a test that can be checked at any time</div>
+      <p>With \(n\) users per arm, mean difference \(\bar\Delta_n\), per-pair variance \(\sigma^2\) and a \(\mathcal N(0, \tau^2)\) mixture over the true difference,</p>
+      <div class="eq">$$\Lambda_n = \sqrt{\frac{\sigma^2}{\sigma^2 + n\tau^2}}\, \exp\!\Big(\frac{n^2\tau^2\, \bar\Delta_n^2}{2\sigma^2(\sigma^2 + n\tau^2)}\Big).$$</div>
+      <p>If the arms are equal, \(P(\Lambda_n \ge 1/\alpha \text{ for some } n) \le \alpha\), however often the test is checked.</p>
+      <p class="proof"><em>proof</em>For each fixed true difference \(\theta\), the likelihood ratio of \(\theta\) against 0 is a nonnegative martingale with mean 1 when the arms are equal. A mixture of such martingales over \(\theta\) is again one, and \(\Lambda_n\) is that mixture in closed form for Gaussian increments. Ville's inequality bounds the chance that a nonnegative martingale starting at 1 ever reaches \(1/\alpha\) by \(\alpha\). The same argument certified the router of <a href="../02/#s9">investigation 02</a>. ∎</p>
+    </div>
+    <table class="res" id="peektab"></table>
+    <p class="cap" id="peektabcap"><b>Table 3.</b> ·</p>
+    <p id="s6text">·</p>
+  </section>
+
+  <section id="s7">
+    <h2><span class="n">§7</span>How many users a change needs</h2>
+    <p>The smallest change a test can reliably see, at 5% significance and 80% power, is about \((z_{0.975} + z_{0.8})\sqrt{2p(1-p)/n}\) for \(n\) users per arm.</p>
+    <table class="res" id="mdetab"></table>
+    <p class="cap" id="mdecap"><b>Table 4.</b> ·</p>
+    <table class="res" id="seqtab"></table>
+    <p class="cap"><b>Table 5.</b> The always-valid test on planted lifts. Arm B's outcomes are real customers with a random share of non-returners switched to returners, so that the true lift is exact. 1,500 replicates, checked every 10 users per arm, stopped at 2,000 per arm at most. The fixed test uses the sample size from Table 4.</p>
+    <p id="s7text">·</p>
+  </section>
+
+  <section id="s8">
+    <h2><span class="n">§8</span>What a founder should report</h2>
+    <p id="s8text">·</p>
+    <p>The next milestone turns from retention to revenue. Spend per customer is heavy-tailed, a few customers buy far more than the rest, and a mean from fifty customers is much less stable than a proportion. The same data allows each method to be checked against the truth again.</p>
+  </section>
+
+  <section id="s9">
+    <h2><span class="n">§9</span>Reproduce</h2>
+<pre><span class="c"># download online_retail_ii.zip from the UCI repository into data/raw/ and unzip it</span>
+cd investigations/03-startup-statistics
+python prepare.py           <span class="c"># customer-by-month activity matrix</span>
+python run_milestone1.py    <span class="c"># every number on this page, results/milestone1.json, under a minute</span>
+python export_site_data.py  <span class="c"># site/data/inv03.json</span></pre>
+    <p>Seeds are fixed. The raw transactions are not stored in the repository but are a single public download.</p>
+  </section>
+
+  <section id="refs">
+    <h2><span class="n">·</span>References</h2>
+    <ol class="refs">
+      <li><span><i>D. Chen.</i> Online Retail II. UCI Machine Learning Repository, 2019. doi:10.24432/C5CG6D. CC BY 4.0.</span></li>
+      <li><span><i>L. D. Brown, T. T. Cai, A. DasGupta.</i> Interval estimation for a binomial proportion. Statistical Science 16(2), 101–133, 2001.</span></li>
+      <li><span><i>E. B. Wilson.</i> Probable inference, the law of succession, and statistical inference. Journal of the American Statistical Association 22(158), 209–212, 1927.</span></li>
+      <li><span><i>C. J. Clopper, E. S. Pearson.</i> The use of confidence or fiducial limits illustrated in the case of the binomial. Biometrika 26(4), 404–413, 1934.</span></li>
+      <li><span><i>B. Efron, C. Morris.</i> Data analysis using Stein's estimator and its generalizations. Journal of the American Statistical Association 70(350), 311–319, 1975.</span></li>
+      <li><span><i>R. Johari, P. Koomen, L. Pekelis, D. Walsh.</i> Peeking at A/B tests: why it matters, and what to do about it. KDD 2017, 1517–1525.</span></li>
+      <li><span><i>H. Robbins.</i> Statistical methods related to the law of the iterated logarithm. Annals of Mathematical Statistics 41(5), 1397–1409, 1970.</span></li>
+      <li><span><i>P. Armitage, C. K. McPherson, B. C. Rowe.</i> Repeated significance tests on accumulating data. Journal of the Royal Statistical Society A 132(2), 235–244, 1969.</span></li>
+      <li><span><i>C. Stein.</i> Inadmissibility of the usual estimator for the mean of a multivariate normal distribution. Proceedings of the Third Berkeley Symposium on Mathematical Statistics and Probability 1, 197–206, 1956.</span></li>
+    </ol>
+  </section>
+
+  </article>
+</div></main>
+
+<footer><div class="wrap grid mono">
+  <span class="c1">Ramanjit Singh · Phagwara, Punjab</span>
+  <span class="c2"><a href="mailto:hackit830@gmail.com">hackit830@gmail.com</a> · <a href="https://www.linkedin.com/in/ramanjitsingh1">linkedin.com/in/ramanjitsingh1</a> · <a href="https://github.com/ramanjitsingh-hub">github</a></span>
+  <span class="c3">Every figure is computed, none is drawn.</span>
+</div></footer>
+
+<script src="../assets/navmenu.js"></script>
+<script src="../assets/plot.js"></script>
+<script>
+let D = null;
+const $ = id => document.getElementById(id);
+const pct = (v, d = 1) => (100 * v).toFixed(d) + "%";
+const pts = (v, d = 1) => (100 * v).toFixed(d);
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const mname = m => MON[(m + 11) % 12] + " " + (2009 + Math.floor((m + 11) / 12));
+
+function drawCoh() {
+  const svg = $("coh"); svg.innerHTML = "";
+  const c = D.cohorts, K = c.month.length;
+  const a = axes(svg, { W: 860, H: 300, L: 50, R: 14, T: 20, B: 34, x0: -0.7, x1: K - 0.3, y0: 0, y1: 0.45,
+    xt: [], yt: [0, 0.1, 0.2, 0.3, 0.4], yfmt: v => (100 * v) + "%", yl: "retention" });
+  mk(svg, "line", { x1: a.sx(-0.7), x2: a.sx(K - 0.3), y1: a.sy(c.pooled), y2: a.sy(c.pooled), stroke: C.faint, "stroke-dasharray": "4 3" });
+  c.month.forEach((m, i) => { const p = c.rate[i], se = Math.sqrt(c.pooled * (1 - c.pooled) / c.size[i]), x = a.sx(i);
+    mk(svg, "line", { x1: x, x2: x, y1: a.sy(Math.max(0, p - 2 * se)), y2: a.sy(p + 2 * se), stroke: C.lav, "stroke-width": 5, opacity: .45 });
+    mk(svg, "circle", { cx: x, cy: a.sy(p), r: 3.6, fill: C.lavD });
+    if (i % 3 === 0) txt(svg, x, 286, mname(m), { "text-anchor": "middle" }); });
+  txt(svg, a.sx(K - 0.3) - 4, a.sy(c.pooled) - 6, `all cohorts ${pct(c.pooled)}`, { "text-anchor": "end" });
+  $("cohcap").innerHTML = `<b>Figure 1.</b> ${K} cohorts of ${Math.min(...c.size)} to ${Math.max(...c.size)} new customers. Bars are ±2 standard errors around each cohort's rate if every cohort shared the overall rate. Points outside their bars are more than sampling noise.`;
+}
+
+function drawWid() {
+  const svg = $("wid"); svg.innerHTML = "";
+  const A = D.intervals, ns = Object.keys(A).map(Number), p = D.p_true;
+  const a = axes(svg, { W: 860, H: 320, L: 50, R: 14, T: 20, B: 32, x0: 8, x1: 1300, y0: 0, y1: 0.5, xlog: true,
+    xt: [10, 20, 50, 100, 200, 500, 1000], yt: [0, 0.1, 0.2, 0.3, 0.4, 0.5], yfmt: v => (100 * v) + "%", xl: "users in the sample", yl: "retention" });
+  const band = ns.map(n => [a.sx(n), a.sy(A[n].example.q90)]).concat(ns.slice().reverse().map(n => [a.sx(n), a.sy(A[n].example.q10)]));
+  mk(svg, "path", { d: poly(band) + "Z", fill: C.lav, opacity: .28 });
+  const hw = n => A[n].Wilson.width / 2;
+  mk(svg, "path", { d: poly(ns.map(n => [a.sx(n), a.sy(p + hw(n))])), fill: "none", stroke: C.ink, "stroke-width": 1.4 });
+  mk(svg, "path", { d: poly(ns.map(n => [a.sx(n), a.sy(Math.max(0, p - hw(n)))])), fill: "none", stroke: C.ink, "stroke-width": 1.4 });
+  mk(svg, "line", { x1: a.sx(8), x2: a.sx(1300), y1: a.sy(p), y2: a.sy(p), stroke: C.graphite, "stroke-dasharray": "4 3" });
+  [50, 1000].forEach(n => txt(svg, a.sx(n) + 6, a.sy(p + hw(n)) - 6, `±${pts(hw(n), 0)} pts`, { fill: C.ink }));
+  $("widcap").innerHTML = `<b>Figure 2.</b> The shaded band holds the middle 80% of the rates measured on 20,000 random samples of each size. With 50 users, one sample in ten reads below ${pct(A[50].example.q10, 0)} and one in ten above ${pct(A[50].example.q90, 0)}, for a true rate of ${pct(p)}. The black lines are the mean 95% Wilson interval around the truth.`;
+}
+
+function drawCov() {
+  const A = D.intervals, ns = Object.keys(A).map(Number), M = ["Wald", "Wilson", "Agresti-Coull", "Clopper-Pearson", "Jeffreys"];
+  let h = "<tr><th>users</th>" + M.map(m => `<th>${m}</th>`).join("") + "<th>Wilson half-width</th></tr>";
+  ns.forEach(n => { h += `<tr><td>${n.toLocaleString()}</td>` + M.map(m => { const c = A[n][m].coverage; return `<td class="${c < 0.93 ? "neg" : ""}">${pct(c)}</td>`; }).join("") + `<td>±${A[n].Wilson.width_pts_half.toFixed(1)} pts</td></tr>`; });
+  $("covtab").innerHTML = h;
+  $("covcap").innerHTML = `<b>Table 1.</b> Share of 20,000 samples whose 95% interval contained the true rate. Below 93% is marked. At 500 and 1,000 users coverage climbs above 95% for every method, because the samples are drawn without replacement from a population of ${D.n_population.toLocaleString()}, so they vary less than the binomial formula assumes.`;
+}
+
+function drawCC() {
+  const svg = $("cc"); svg.innerHTML = "";
+  const c = D.coverage_curve_n50, col = { Wald: "#9A5B5B", Wilson: C.ink, "Clopper-Pearson": C.powderD, Jeffreys: C.lavD };
+  const a = axes(svg, { W: 860, H: 300, L: 50, R: 14, T: 20, B: 32, x0: 0, x1: 1, y0: 0.6, y1: 1, xt: [0, 0.2, 0.4, 0.6, 0.8, 1], xfmt: v => (100 * v) + "%",
+    yt: [0.6, 0.7, 0.8, 0.9, 0.95, 1], yfmt: v => (100 * v) + "%", xl: "true rate", yl: "coverage" });
+  mk(svg, "line", { x1: a.sx(0), x2: a.sx(1), y1: a.sy(0.95), y2: a.sy(0.95), stroke: C.sage, "stroke-width": 1.5 });
+  Object.entries(col).forEach(([k, cl]) => mk(svg, "path", { d: poly(c.p.map((p, i) => [a.sx(p), a.sy(Math.max(0.6, c[k][i]))])), fill: "none", stroke: cl, "stroke-width": k === "Wilson" || k === "Wald" ? 1.6 : 1.1 }));
+  $("ccleg").innerHTML = Object.entries(col).map(([k, cl]) => `<span><i class="sw" style="background:${cl}"></i>${k}</span>`).join("") + "<span>green line: 95%</span>";
+  $("cccap").innerHTML = `<b>Figure 3.</b> Computed exactly from the binomial distribution, not simulated. The saw-tooth comes from the discreteness of counts out of 50. Wald's coverage falls to ${pct(Math.min(...c.Wald), 0)} near the edges, where many startup metrics sit, and Wilson's lowest point is ${pct(Math.min(...c.Wilson), 0)}.`;
+  const A = D.intervals;
+  $("s3text").innerHTML = `The width is the first lesson. With 50 users a rate near 21% carries a 95% interval of about ±${A[50].Wilson.width_pts_half.toFixed(0)} points. With 1,000 it is about ±${A[1000].Wilson.width_pts_half.toFixed(1)}. Halving the interval takes four times the users, so a cohort of 50 cannot tell 15% from 25% retention. The method is the second lesson. Wald's interval misses most often at the sizes founders actually have, ${pct(A[10].Wald.coverage)} coverage at 10 users and ${pct(A[50].Wald.coverage)} at 50 against a promised 95%, while Wilson's stays close to 95% at every size here. It costs one line of code.`;
+}
+
+function drawS4() {
+  const c = D.cohorts, share = (c.tau * c.tau) / (c.sd_rates * c.sd_rates);
+  $("s4text").innerHTML = `Here the statistic is ${c.chi2.toFixed(1)} on ${c.df} degrees of freedom, p = ${c.chi2_p < 0.001 ? c.chi2_p.toExponential(0).replace("e-", " × 10⁻") : c.chi2_p.toFixed(3)}. The cohorts really do differ. But only part of the movement is real. Cohort rates spread with a standard deviation of ${pts(c.sd_rates)} points, while sampling alone would give ${pts(c.mean_sampling_sd)}. Subtracting the sampling part leaves a true month-to-month standard deviation of about ${pts(c.tau)} points, so about ${pct(share, 0)} of the variance a founder sees between monthly cohorts is real and the rest is noise. A cohort that looks five points better than average is, on its own, weak evidence of anything.`;
+}
+
+function drawShr() {
+  const S = D.shrinkage;
+  let h = "<tr><th>users per cohort</th><th>raw rate, error</th><th>everyone the same, error</th><th>empirical Bayes, error</th><th>empirical Bayes better</th></tr>";
+  Object.entries(S).forEach(([n, r]) => { h += `<tr><td>${n}</td><td>${pts(r.rmse_raw)} pts</td><td>${pts(r.rmse_pooled)} pts</td><td class="best">${pts(r.rmse_eb)} pts</td><td>${pct(r.eb_better_share, 0)} of runs</td></tr>`; });
+  $("shrtab").innerHTML = h;
+  $("shrcap").innerHTML = `<b>Table 2.</b> Root-mean-square error against each cohort's full rate, over ${D.shrinkage_cohorts} cohorts and 2,000 subsamples. "Everyone the same" reports the pooled rate for every cohort. The last column is the share of subsamples in which empirical Bayes beat the raw rates across all cohorts together.`;
+  const s20 = S["20"], s100 = S["100"];
+  $("s5text").innerHTML = `With 20 users per cohort, empirical Bayes cuts the error from ${pts(s20.rmse_raw)} to ${pts(s20.rmse_eb)} points, ${pct(1 - s20.rmse_eb / s20.rmse_raw, 0)} less, and does better than the raw rates in ${pct(s20.eb_better_share, 0)} of runs. It also beats the opposite extreme, ignoring the cohorts and reporting one pooled number. As cohorts grow the gain fades, and at 100 users the two methods are nearly equal, ${pts(s100.rmse_raw)} against ${pts(s100.rmse_eb)}, because each raw rate is then precise enough to stand alone. Stein showed in 1956 that this is no accident<sup class="r"><a href="#refs">[9]</a></sup>. For normal means with known variance and three or more groups, shrinking toward a common value lowers the total squared error whatever the true means are, and binomial rates behave much the same once cohorts are not tiny. For a startup the practical rule is simple. When a cohort is small, report its rate pulled toward the overall rate, and say how much.`;
+}
+
+function drawPeek() {
+  const svg = $("peek"); svg.innerHTML = "";
+  const P = D.peeking, ks = Object.keys(P.fpr_by_looks).map(Number), v = ks.map(k => P.fpr_by_looks[k]);
+  const a = axes(svg, { W: 860, H: 300, L: 50, R: 14, T: 20, B: 32, x0: 0.8, x1: 250, y0: 0, y1: 0.5, xlog: true,
+    xt: [1, 2, 5, 10, 20, 50, 100, 200], yt: [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5], yfmt: v => (100 * v) + "%", xl: "times the test is checked", yl: "false alarms" });
+  mk(svg, "line", { x1: a.sx(0.8), x2: a.sx(250), y1: a.sy(0.05), y2: a.sy(0.05), stroke: C.sage, "stroke-width": 1.5 });
+  txt(svg, a.sx(250) - 4, a.sy(0.05) - 6, "the promised 5%", { "text-anchor": "end", fill: C.sageD });
+  mk(svg, "path", { d: poly(ks.map((k, i) => [a.sx(k), a.sy(v[i])])), fill: "none", stroke: C.lavD, "stroke-width": 1.8 });
+  ks.forEach((k, i) => { mk(svg, "circle", { cx: a.sx(k), cy: a.sy(v[i]), r: 3.6, fill: C.lavD }); txt(svg, a.sx(k), a.sy(v[i]) - 10, pct(v[i], 0), { "text-anchor": "middle", fill: C.ink }); });
+  mk(svg, "circle", { cx: a.sx(200), cy: a.sy(P.fpr_msprt), r: 4.5, fill: C.ink });
+  txt(svg, a.sx(200) - 8, a.sy(P.fpr_msprt) - 8, `always-valid test, checked 200 times · ${pct(P.fpr_msprt)}`, { "text-anchor": "end", fill: C.ink });
+  $("peekcap").innerHTML = `<b>Figure 4.</b> A z-test at the 5% level, checked at evenly spaced points up to 2,000 users per arm, in 2,000 A/A replicates. Every alarm is false, because the two arms are the same product. Armitage, McPherson and Rowe described this effect in 1969<sup class="r"><a href="#refs">[8]</a></sup>.`;
+  let h = "<tr><th>procedure</th><th>false alarms</th><th>can be checked</th></tr>";
+  h += `<tr><td>z-test, once at 2,000 per arm</td><td>${pct(P.fpr_fixed_once)}</td><td>once</td></tr>`;
+  h += `<tr><td>z-test, every 10 users</td><td class="neg">${pct(P.fpr_naive_peeking)}</td><td>${P.looks} times</td></tr>`;
+  h += `<tr><td>mixture SPRT, every 10 users</td><td class="best">${pct(P.fpr_msprt)}</td><td>${P.looks} times, or any time</td></tr>`;
+  $("peektab").innerHTML = h;
+  $("peektabcap").innerHTML = `<b>Table 3.</b> ${P.reps.toLocaleString()} A/A replicates with customers in their real arrival order, \\(\\alpha = 0.05\\), mixture standard deviation \\(\\tau = 2\\) points, fixed before the run.`;
+  $("s6text").innerHTML = `Checking once gives the promised 5%. Checking ten times gives ${pct(P.fpr_by_looks["10"], 0)}, and checking after every 10 users, which a daily dashboard does, gives ${pct(P.fpr_naive_peeking, 0)}. Four in ten experiments on identical products would declare a winner. The always-valid test stays at ${pct(P.fpr_msprt)}, well inside its promise, however often it is checked. It is conservative here because the bound of Proposition 2 holds for every stopping rule at once.`;
+  if (window.renderMathInElement) renderMathInElement($("peektabcap"), { delimiters: [{ left: "\\(", right: "\\)", display: false }] });
+}
+
+function drawPower() {
+  const P = D.power, need = P.n_needed_per_arm;
+  let h = "<tr><th>users per arm</th><th>smallest detectable change</th><th>relative to a 21% base</th></tr>";
+  Object.entries(P.mde).forEach(([n, r]) => { h += `<tr><td>${(+n).toLocaleString()}</td><td>${r.mde_points.toFixed(1)} pts</td><td>${pct(r.mde_relative, 0)}</td></tr>`; });
+  $("mdetab").innerHTML = h;
+  $("mdecap").innerHTML = `<b>Table 4.</b> At a base rate of ${pct(P.p0)}, 5% significance and 80% power. Detecting a lift of 2, 5 or 10 points needs ${need["0.02"].toLocaleString()}, ${need["0.05"].toLocaleString()} and ${need["0.1"].toLocaleString()} users per arm.`;
+  let s = "<tr><th>true lift</th><th>fixed test, users per arm</th><th>fixed test, power</th><th>always-valid, median stop</th><th>middle half of stops</th><th>always-valid, power within 2,000</th></tr>";
+  Object.entries(P.sequential).forEach(([l, r]) => { s += `<tr><td>+${(100 * l).toFixed(0)} pts</td><td>${r.n_fixed_80pct.toLocaleString()}</td><td>${pct(r.power_fixed, 0)}</td><td>${Math.round(r.median_stop).toLocaleString()}</td><td>${Math.round(r.q25_stop)} to ${Math.round(r.q75_stop)}</td><td>${pct(r.power_msprt_within_cap, 0)}</td></tr>`; });
+  $("seqtab").innerHTML = s;
+  const q5 = P.sequential["0.05"], q10 = P.sequential["0.1"];
+  $("s7text").innerHTML = `With 50 users per arm, only a change of about ${P.mde["50"].mde_points.toFixed(0)} points can be seen, which would more than double retention. Most product changes move retention by a few points, so at seed-stage volumes an A/B test on retention mostly cannot answer the question it is asked. At ${(4600).toLocaleString()} users per arm, roughly FemoraAI's whole user base, the floor is ${P.mde["4600"].mde_points.toFixed(1)} points.<br><br>The always-valid test buys the freedom to check at any time, and the price is users. For a 5-point lift it stops at a median of ${Math.round(q5.median_stop).toLocaleString()} users per arm against ${q5.n_fixed_80pct.toLocaleString()} for the fixed test. For a 10-point lift it stops at ${Math.round(q10.median_stop)} against ${q10.n_fixed_80pct}, because the mixture was centred on small effects. A team that expects large effects should set \\(\\tau\\) larger before starting, never after looking.`;
+  if (window.renderMathInElement) renderMathInElement($("s7text"), { delimiters: [{ left: "\\(", right: "\\)", display: false }] });
+  $("s8text").innerHTML = `A retention number means little without three things next to it. Its denominator, meaning how many users the rate is out of. Its window, meaning which users were counted and active over what period. And its interval, computed with Wilson's formula rather than Wald's. The retention figure I quoted for FemoraAI did not carry all three, which is part of why I wrote this page. With them, a reader can tell a real signal from a lucky month. Beyond reporting, three habits follow from the measurements. Shrink small cohorts toward the overall rate before comparing them. Never stop an experiment on a fixed-sample test because it looks good today, and use an always-valid test if the team will look every day. And before running a test, compute the smallest change it can see. At seed-stage volumes the honest answer is often that the test cannot be run yet.`;
+}
+
+fetch("../data/inv03.json", { cache: "no-cache" }).then(r => r.json()).then(d => {
+  D = d;
+  $("m-cust").textContent = `${d.n_customers.toLocaleString()}, ${d.months} months`;
+  $("npop").textContent = d.n_population.toLocaleString(); $("ptrue").textContent = pct(d.p_true);
+  drawCoh(); drawWid(); drawCov(); drawCC(); drawS4(); drawShr(); drawPeek(); drawPower();
+});
+document.addEventListener("DOMContentLoaded", () => {
+  const go = () => window.renderMathInElement ? renderMathInElement(document.body, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "\\(", right: "\\)", display: false }] }) : setTimeout(go, 50); go();
+});
+addEventListener("scroll", () => $("nav").classList.toggle("solid", scrollY > 20), { passive: true });
+const links = [...document.querySelectorAll("#toc a")];
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle("on", l.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "-40% 0px -55% 0px" });
+document.querySelectorAll("article section").forEach(s => io.observe(s));
+</script>
+</body>
+</html>

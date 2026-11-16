@@ -9,3 +9,5 @@ investigations/s1-gpu-navier-stokes/bin/
 *.pdb
 investigations/s2-gpu-anatomy/bin/
 investigations/02-model-routing/data/raw/
+investigations/03-startup-statistics/data/raw/
+investigations/04-retrieval-fusion/data/raw/
