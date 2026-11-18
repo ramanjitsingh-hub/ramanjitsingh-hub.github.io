@@ -17,14 +17,14 @@
 
 <nav id="nav"><div class="wrap grid">
   <a class="who" href="../">Ramanjit Singh</a>
-  <div class="links"><a href="../#research">Investigations</a><a href="../01/">01</a><a href="../02/">02</a><a href="../03/">03</a><a href="../04/">04</a><a href="../#systems">Systems</a><a href="../#about">About</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="../assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
+  <div class="links"><a href="../#research">Investigations</a><a href="../01/">01</a><a href="../02/">02</a><a href="../03/">03</a><a href="../04/">04</a><a href="../#inside">Systems</a><a href="../#about">About</a><a href="https://github.com/ramanjitsingh-hub/ramanjitsingh-hub.github.io">Code</a><a href="../assets/Ramanjit_Singh_CV.pdf" download>CV</a></div>
   <span class="rev mono">investigation 04</span>
 </div></nav>
 
 <header class="top"><div class="wrap grid">
   <div class="kicker mono"><span class="tick"></span>Investigation 04 · Hybrid search</div>
   <h1>When does mixing keyword and meaning search help?</h1>
-  <p class="abstract">Luna remembers a founder's work by searching it two ways at once, by exact words and by meaning, and mixing the results. Mixing is widely assumed to help. On five public benchmarks it often does not. The most common recipe, reciprocal rank fusion, makes results worse than meaning search alone on three of five. A weighted mix, with the weight learned on held-out queries, is never significantly worse and is significantly better on three. A two-signal model from detection theory predicts which way an equal mix will go from three numbers per dataset.</p>
+  <p class="abstract">Luna remembers a founder's work by searching it two ways at once, by exact words and by meaning, and mixing the results. Mixing is widely assumed to help. On five public benchmarks it often does not. The most common recipe, reciprocal rank fusion, which Luna's memory itself uses with k = 60, makes results worse than meaning search alone on three of five. A weighted mix, with the weight learned on held-out queries, is never significantly worse and is significantly better on three. A two-signal model from detection theory predicts which way an equal mix will go from three numbers per dataset.</p>
   <div class="side">
     <div class="status mono"><i></i>in progress · milestone 1 complete</div>
     <div class="datanote"><b>Data.</b> Five datasets from the public BEIR benchmark<sup class="r"><a href="#refs">[1]</a></sup>, with expert relevance labels. Meaning search uses the open bge-small model on the laptop GPU. No Luna user data is used.</div>

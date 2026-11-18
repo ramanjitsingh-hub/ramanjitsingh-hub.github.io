@@ -2,7 +2,7 @@
 
 Source for [ramanjitsingh-hub.github.io](https://ramanjitsingh-hub.github.io): my personal site and the research investigations it presents.
 
-Each investigation is a question, a derivation, an implementation written from scratch, and measured results, including the ones that did not go my way. Every figure on the site is rendered from data exported by the code in this repository.
+Each investigation starts inside FemoraAI or Luna, from a decision the product makes or one we faced as founders. It is a question, a derivation, an implementation written from scratch, and measured results, including the ones that did not go my way. Every figure on the site is rendered from data exported by the code in this repository.
 
 | | Investigation | Status | Code |
 |---|---|---|---|
@@ -11,27 +11,18 @@ Each investigation is a question, a derivation, an implementation written from s
 | 03 | What can a startup learn from fifty users? Interval coverage, cohort noise, empirical Bayes shrinkage, the peeking problem and always-valid tests, checked against a real customer base used as ground truth. | in progress, milestone 1 complete | [`investigations/03-startup-statistics`](investigations/03-startup-statistics) |
 | 04 | When does mixing keyword and meaning search help? BM25 and a GPU sentence encoder on five BEIR datasets, six fusion methods with paired tests, and a two-signal detection model that predicts the result. | in progress, milestone 1 complete | [`investigations/04-retrieval-fusion`](investigations/04-retrieval-fusion) |
 
-### Systems (earlier work on GPU computing)
-| | Investigation | Status | Code |
-|---|---|---|---|
-| S1 | A GPU Navier–Stokes solver. From-scratch CUDA on a 4 GB laptop GPU: verification, multigrid, mixed precision, a shared-memory smoother, the lid-driven cavity, a hardware-counter roofline, and a WebGPU port. | in progress, milestones 1 to 4 complete | [`investigations/s1-gpu-navier-stokes`](investigations/s1-gpu-navier-stokes) |
-| S2 | The anatomy of a graphics card. Microbenchmarks that each isolate one hardware mechanism, tested against a model written down first. | in progress, milestones 1 and 2 complete | [`investigations/s2-gpu-anatomy`](investigations/s2-gpu-anatomy) |
-
 ## Layout
 ```
 site/                     the website (static HTML, no build step), deployed by .github/workflows/pages.yml
   index.html              homepage
   01/ .. 04/              research investigation pages
-  s1/, s2/                systems studies
   data/                   numbers exported from the experiment runs, never edited by hand
-  assets/                 shared CSS, plotting helpers, the WebGPU solver and its CPU fallback
+  assets/                 shared CSS and plotting helpers
 investigations/
   01-femora-predictor/    Python. port, generator, grid filter, experiments, conformal ranges, tests
   02-model-routing/       Python. decision theory, text routers, certification, bandits, off-policy evaluation, on the public SPROUT data
   03-startup-statistics/  Python. interval coverage, shrinkage, sequential tests, on the public Online Retail II data
   04-retrieval-fusion/    Python and PyTorch. BM25, dense retrieval, fusion, detection-theory model, on public BEIR data
-  s1-gpu-navier-stokes/   CUDA C++ and Python. solvers, reference implementation, experiment runners
-  s2-gpu-anatomy/         CUDA C++ and Python. microbenchmarks, counter profiling, model-against-measurement analysis
 ```
 
 ## Reproduce
@@ -41,10 +32,7 @@ cd investigations/01-femora-predictor && python -m pytest -q && python run_exper
 cd investigations/02-model-routing && python prepare.py && python fit_routers.py && python run_milestone1.py && python run_milestone2.py && python export_site_data.py   # SPROUT parquet files in data/raw/ first
 cd investigations/03-startup-statistics && python prepare.py && python run_milestone1.py && python export_site_data.py   # Online Retail II in data/raw/ first
 cd investigations/04-retrieval-fusion && python run_fusion.py && python export_site_data.py   # BEIR datasets in data/raw/ first
-cd investigations/s1-gpu-navier-stokes && ./build.sh && python run_experiments.py && python export_site_data.py
-cd investigations/s2-gpu-anatomy && ./build.sh && python run_milestone1.py && python run_milestone2.py && python analyze.py && python export_site_data.py
 ```
-Systems studies S1 and S2 need an NVIDIA GPU (developed on an RTX 3050 Laptop, sm_86) with CUDA 13.x.
 
 ## Data
 Investigation 01 studies a model that ran in production on real FemoraAI users' data. Every result there is computed on synthetic data. Investigations 02, 03 and 04 use public data (SPROUT, Online Retail II, BEIR), which is not redistributed here. No user data from FemoraAI or Luna is in this repository.
